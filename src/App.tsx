@@ -4,7 +4,6 @@ import { useSession } from "./state/session";
 import { connectSidecar } from "./transport/client";
 import { ChatPanel } from "./components/ChatPanel";
 import { Composer } from "./components/Composer";
-import { AgentSwitcher } from "./components/AgentSwitcher";
 import { SettingsModal } from "./components/SettingsModal";
 import { LogsPanel } from "./components/LogsPanel";
 import "./App.css";
@@ -24,7 +23,6 @@ function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">MyAgent</div>
-        <AgentSwitcher />
         <button
           className={`icon-btn logs-toggle ${logsOpen ? "active" : ""}`}
           onClick={() => setLogsOpen((v) => !v)}
@@ -52,7 +50,7 @@ function App() {
       </main>
       {logsOpen && <LogsPanel onClose={() => setLogsOpen(false)} />}
       <footer className="bottombar">
-        <Composer />
+        <Composer onOpenSettings={() => setSettingsOpen(true)} />
       </footer>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>

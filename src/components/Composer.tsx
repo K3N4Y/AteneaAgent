@@ -1,26 +1,33 @@
-// Input de texto + enviar. Bloquea mientras el agente trabaja (streaming).
+// Composer estilo Cursor: una tarjeta redondeada con el textarea arriba y una
+// barra inferior con el selector de agente + el modelo a la izquierda y los
+// accesos de adjuntar/voz (placeholders) más el botón de enviar a la derecha.
+// Bloquea el envío mientras el agente trabaja (streaming) o si no hay conexión.
 
 import { useState } from "react";
 import { useSession } from "../state/session";
 import { sendUserMessage } from "../transport/client";
+import { AgentSwitcher } from "./AgentSwitcher";
+import { ChevronIcon, MicIcon, PaperclipIcon, SendIcon } from "./icons";
 
-export function Composer() {
+export function Composer({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [text, setText] = useState("");
   const streaming = useSession((s) => s.streaming);
   const connected = useSession((s) => s.connected);
+  const model = useSession((s) => s.model);
   const disabled = streaming || !connected;
+  const canSend = !disabled && text.trim().length > 0;
 
   const submit = () => {
-    if (disabled || !text.trim()) return;
+    if (!canSend) return;
     sendUserMessage(text);
     setText("");
   };
 
   return (
-    <div className="composer">
+    <div className={`composer ${disabled ? "is-disabled" : ""}`}>
       <textarea
         className="composer-input"
-        placeholder={connected ? "Escribí un mensaje…  (Enter para enviar)" : "Conectando al motor…"}
+        placeholder={connected ? "Escribí un mensaje al agente…" : "Conectando al motor…"}
         value={text}
         disabled={disabled}
         rows={2}
@@ -32,9 +39,53 @@ export function Composer() {
           }
         }}
       />
-      <button className="composer-send" onClick={submit} disabled={disabled || !text.trim()}>
-        {streaming ? "…" : "Enviar"}
-      </button>
+
+      <div className="composer-bar">
+        <div className="composer-bar-left">
+          <AgentSwitcher />
+          <button
+            type="button"
+            className="composer-pill composer-model"
+            onClick={onOpenSettings}
+            title="Cambiar modelo / proveedor"
+          >
+            <span className="composer-pill-label">{model ?? "modelo"}</span>
+            <ChevronIcon />
+          </button>
+        </div>
+
+        <div className="composer-bar-right">
+          {/* Placeholders: adjuntar imagen y entrada de voz (todavía sin función). */}
+          <button
+            type="button"
+            className="composer-icon"
+            title="Adjuntar imagen (próximamente)"
+            aria-label="Adjuntar imagen"
+          >
+            <PaperclipIcon />
+          </button>
+          <button
+            type="button"
+            className="composer-icon"
+            title="Entrada de voz (próximamente)"
+            aria-label="Entrada de voz"
+          >
+            <MicIcon />
+          </button>
+          {(streaming || text.trim().length > 0) && (
+            <button
+              type="button"
+              className="composer-send"
+              onClick={submit}
+              disabled={!canSend}
+              title="Enviar (Enter)"
+              aria-label="Enviar mensaje"
+            >
+              {streaming ? <span className="composer-spinner" /> : <SendIcon />}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

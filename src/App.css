@@ -3,18 +3,19 @@
   font-size: 15px;
   line-height: 1.55;
   color: #e6e6e6;
-  background-color: #1b1d22;
+  background-color: #141414;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --bg: #1b1d22;
-  --bg-2: #23262d;
-  --bg-3: #2a2e37;
-  --border: #353a45;
+  /* Paleta Cursor (grises neutros). */
+  --bg: #141414;
+  --bg-2: #181818;
+  --bg-3: #202020;
+  --border: #474747;
   --text: #e6e6e6;
-  --muted: #9aa3b2;
+  --muted: #8a8a8a;
   --accent: #6ea8fe;
   --ok: #4ec9a3;
   --err: #f0786f;
@@ -225,59 +226,75 @@ body {
   cursor: default;
 }
 
-/* ── Agent switcher ─────────────────────────────────────── */
-.agent-switcher {
-  display: flex;
-  gap: 4px;
-  background: var(--bg-3);
-  padding: 3px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
+/* ── Agent picker (píldora desplegable dentro del composer) ─ */
+.agent-picker {
+  position: relative;
 }
-.agent-tab {
-  border: 0;
+.agent-glyph {
+  font-size: 14px;
+  line-height: 1;
+}
+.agent-pill .composer-pill-label {
+  color: var(--text);
+}
+.agent-pill.agent-plan .agent-glyph {
+  color: #c9a7ff;
+}
+.agent-pill.agent-build .agent-glyph {
+  color: var(--accent);
+}
+.agent-pill.agent-e2e .agent-glyph {
+  color: var(--ok);
+}
+
+.agent-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 230px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
   background: transparent;
-  color: var(--muted);
-  padding: 4px 12px;
+  border: 0;
   border-radius: 7px;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.agent-menu-item:hover,
+.agent-menu-item.active {
+  background: var(--bg-3);
+}
+.agent-menu-label {
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
-}
-.agent-tab:hover:not(:disabled) {
   color: var(--text);
 }
-.agent-tab.active {
-  background: var(--bg);
-  color: var(--text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-.agent-tab.active.agent-plan {
+.agent-menu-item.agent-plan .agent-menu-label {
   color: #c9a7ff;
 }
-.agent-tab.active.agent-build {
+.agent-menu-item.agent-build .agent-menu-label {
   color: var(--accent);
 }
-.agent-tab.active.agent-e2e {
+.agent-menu-item.agent-e2e .agent-menu-label {
   color: var(--ok);
 }
-.agent-tab:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.agent-hint {
-  font-size: 12px;
+.agent-menu-hint {
+  font-size: 11.5px;
   color: var(--muted);
-  font-style: italic;
-}
-.agent-hint.agent-plan {
-  color: #c9a7ff;
-}
-.agent-hint.agent-build {
-  color: var(--accent);
-}
-.agent-hint.agent-e2e {
-  color: var(--ok);
 }
 
 /* ── Plan view (agente Plan) ─────────────────────────────── */
@@ -544,47 +561,149 @@ body {
   word-break: break-word;
 }
 
-/* ── Composer ───────────────────────────────────────────── */
+/* ── Composer (estilo Cursor) ───────────────────────────── */
 .bottombar {
   flex: 0 0 auto;
-  border-top: 1px solid var(--border);
-  background: var(--bg-2);
+  background: var(--bg);
+  padding: 4px 16px 16px;
 }
 .composer {
   max-width: 820px;
   margin: 0 auto;
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  padding: 12px 16px;
-  align-items: flex-end;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.composer:focus-within {
+  border-color: #5c5c5c;
+  box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.1);
+}
+.composer.is-disabled {
+  opacity: 0.9;
 }
 .composer-input {
-  flex: 1;
+  width: 100%;
   resize: none;
-  background: var(--bg);
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
+  border: 0;
+  padding: 4px 4px 0;
   font-family: inherit;
   font-size: 14px;
+  line-height: 1.5;
   outline: none;
+  min-height: 52px;
+  max-height: 220px;
 }
-.composer-input:focus {
-  border-color: var(--accent);
+.composer-input::placeholder {
+  color: var(--muted);
 }
+
+/* Barra inferior: pills a la izquierda, accesos + enviar a la derecha. */
+.composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.composer-bar-left,
+.composer-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Píldoras (agente + modelo). */
+.composer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 220px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.composer-pill:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--border);
+}
+.composer-pill:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.composer-pill-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-pill .icon {
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+.composer-model {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 500;
+}
+
+/* Accesos placeholder (adjuntar / voz). */
+.composer-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+}
+.composer-icon:hover {
+  color: var(--text);
+  background: var(--bg-3);
+}
+
+/* Botón enviar (aparece al escribir; spinner mientras streamea). */
 .composer-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   background: var(--accent);
   color: #0e1116;
   border: 0;
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-weight: 700;
   cursor: pointer;
+  margin-left: 2px;
 }
 .composer-send:disabled {
-  opacity: 0.5;
+  background: var(--bg-3);
+  color: var(--muted);
   cursor: default;
+}
+.composer-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(14, 17, 22, 0.35);
+  border-top-color: #0e1116;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Panel de logs de desarrollo ────────────────────────── */
