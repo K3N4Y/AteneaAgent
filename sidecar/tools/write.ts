@@ -8,6 +8,7 @@ import { type Tool, type ToolResult } from "./types";
 import { writeWithinProject, existsWithinProject } from "./fs-safe";
 import { computeFileHash, toLines } from "../edit/hashline/hash";
 import { formatHeader } from "../edit/hashline/format";
+import { MAX_FILE_BYTES } from "../config/limits";
 
 const schema = z.object({
   path: z.string().describe("Ruta del archivo a crear, relativa a la raíz del proyecto."),
@@ -26,6 +27,14 @@ export const writeFileTool: Tool<z.infer<typeof schema>> = {
     "archivo ya existe, falla salvo que pases overwrite: true.",
   schema,
   async run({ path, content, overwrite }, ctx): Promise<ToolResult> {
+    const bytes = Buffer.byteLength(content, "utf8");
+    if (bytes > MAX_FILE_BYTES) {
+      return {
+        output: `El contenido de ${path} es demasiado grande (${bytes} bytes; máx ${MAX_FILE_BYTES}).`,
+        isError: true,
+      };
+    }
+
     try {
       if (!overwrite && (await existsWithinProject(path, ctx))) {
         return {

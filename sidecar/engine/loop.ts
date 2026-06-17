@@ -6,6 +6,7 @@
 import { getProvider } from "../providers/registry";
 import type { ContentPart, LlmMessage } from "../providers/types";
 import { toToolSpec, type Tool, type ToolContext } from "../tools/types";
+import { MAX_TURNS, MAX_IDENTICAL_TOOL_TURNS } from "../config/limits";
 import type { EmitFn } from "./events";
 
 export interface RunOptions {
@@ -19,13 +20,13 @@ export interface RunOptions {
   signal?: AbortSignal;
 }
 
-/** Tope de turnos para evitar bucles infinitos de tool-calling. */
-const MAX_TURNS = 25;
-
 export async function runAgent(opts: RunOptions, emit: EmitFn): Promise<void> {
   const provider = getProvider(opts.providerId);
   const toolSpecs = opts.tools.map(toToolSpec);
   const messages = opts.messages;
+
+  let lastToolSig = "";
+  let sameToolTurns = 0;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     if (opts.signal?.aborted) {
@@ -63,7 +64,18 @@ export async function runAgent(opts: RunOptions, emit: EmitFn): Promise<void> {
       }
     }
 
-    if (failed) return;
+    if (failed) {
+      // El stream cortó mid-flight. Preservamos el texto parcial ya emitido
+      // empujándolo al historial: así el próximo turno conserva el contexto y
+      // la UI no lo pierde. Sólo guardamos las partes de texto —en un error
+      // mid-stream las tool_use quedan incompletas (sin tool_result que las
+      // acompañe) y persistirlas rompería el siguiente request.
+      const partialText = assistantParts.filter((p) => p.type === "text");
+      if (partialText.length > 0) {
+        messages.push({ role: "assistant", content: partialText });
+      }
+      return;
+    }
 
     // Registrar el turno del asistente en el historial (aunque sólo sean tools).
     if (assistantParts.length > 0) {
@@ -84,12 +96,36 @@ export async function runAgent(opts: RunOptions, emit: EmitFn): Promise<void> {
       resultParts.push({ type: "tool_result", toolUseId: call.id, output, isError });
     }
     messages.push({ role: "user", content: resultParts });
+
+    // Cortafuegos anti-bucle: detectado DESPUÉS de ejecutar las tools (el
+    // historial queda consistente: assistant tool_use + user tool_result) y
+    // antes de pedir otro turno al LLM, así no seguimos quemando presupuesto.
+    const sig = signatureOf(calls);
+    sameToolTurns = sig === lastToolSig ? sameToolTurns + 1 : 1;
+    lastToolSig = sig;
+    if (sameToolTurns >= MAX_IDENTICAL_TOOL_TURNS) {
+      emit({
+        type: "error",
+        message:
+          `El modelo repitió la misma operación ${sameToolTurns} veces seguidas; ` +
+          `corto el bucle para no agotar el presupuesto.`,
+      });
+      return;
+    }
   }
 
   emit({
     type: "error",
     message: `Se alcanzó el tope de ${MAX_TURNS} turnos sin terminar.`,
   });
+}
+
+/** Firma estable de un conjunto de tool-calls, para detectar repeticiones. */
+function signatureOf(calls: { name: string; input: unknown }[]): string {
+  return calls
+    .map((c) => `${c.name}(${JSON.stringify(c.input)})`)
+    .sort()
+    .join("|");
 }
 
 async function runTool(

@@ -1,13 +1,15 @@
 // Snapshots por sesión: guarda lo que `read_file` leyó (líneas exactas + hash)
 // para poder verificar/recuperar en `edit_file`. En memoria, por sesión.
 
+import {
+  MAX_SNAPSHOT_VERSIONS_PER_PATH,
+  MAX_SNAPSHOT_PATHS,
+} from "../../config/limits";
+
 export interface Snapshot {
   hash: string;
   lines: string[];
 }
-
-const MAX_VERSIONS_PER_PATH = 4; // como oh-my-pi
-const MAX_PATHS = 30;
 
 export class SnapshotStore {
   private byPath = new Map<string, Snapshot[]>();
@@ -24,7 +26,7 @@ export class SnapshotStore {
       versions[versions.length - 1] = { hash, lines };
     } else {
       versions.push({ hash, lines });
-      if (versions.length > MAX_VERSIONS_PER_PATH) versions.shift();
+      if (versions.length > MAX_SNAPSHOT_VERSIONS_PER_PATH) versions.shift();
     }
     this.evictOldPaths(path);
   }
@@ -37,7 +39,7 @@ export class SnapshotStore {
   }
 
   private evictOldPaths(justUsed: string): void {
-    if (this.byPath.size <= MAX_PATHS) return;
+    if (this.byPath.size <= MAX_SNAPSHOT_PATHS) return;
     // Map mantiene orden de inserción: borra el más viejo que no sea el actual.
     for (const key of this.byPath.keys()) {
       if (key !== justUsed) {

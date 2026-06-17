@@ -14,6 +14,7 @@
 // Filas de cuerpo: empiezan con `+`; `+` solo = línea en blanco.
 
 import { normalize } from "./hash";
+import { MAX_EDIT_INPUT_BYTES, MAX_EDIT_OPS } from "../../config/limits";
 
 export type Op =
   | { kind: "swap"; start: number; end: number; body: string[] }
@@ -40,6 +41,13 @@ const RE_INS_TAIL = /^INS\.TAIL:\s*$/;
 export class ParseError extends Error {}
 
 export function parseHashline(input: string): Section[] {
+  const bytes = Buffer.byteLength(input, "utf8");
+  if (bytes > MAX_EDIT_INPUT_BYTES) {
+    throw new ParseError(
+      `El input de edit_file es demasiado grande (${bytes} bytes; máx ${MAX_EDIT_INPUT_BYTES}).`,
+    );
+  }
+
   const lines = normalize(input).split("\n");
   const sections: Section[] = [];
 
@@ -116,6 +124,13 @@ export function parseHashline(input: string): Section[] {
   if (sections.length === 0) {
     throw new ParseError(
       "No se encontró ninguna sección [PATH#TAG] en el input de edit_file.",
+    );
+  }
+
+  const opCount = sections.reduce((n, s) => n + s.ops.length, 0);
+  if (opCount > MAX_EDIT_OPS) {
+    throw new ParseError(
+      `Demasiadas operaciones en un solo edit_file (${opCount}; máx ${MAX_EDIT_OPS}).`,
     );
   }
   return sections;
