@@ -5,8 +5,9 @@
 > [arquitectura-backend.md](./arquitectura-backend.md) y
 > [arquitectura-frontend.md](./arquitectura-frontend.md).
 
-Estado: **Fase 0 implementada y verificada** (falta solo el demo en vivo, que
-requiere la `OPENCODE_ZEN_API_KEY`). Ver [README.md](../README.md) para correr.
+Estado: **Fase 0 y Fase 1 implementadas y verificadas** (falta solo el demo en
+vivo, que requiere la `OPENCODE_ZEN_API_KEY`). Ver [README.md](../README.md)
+para correr.
 
 ---
 
@@ -100,15 +101,27 @@ de punta a punta, aunque sea con un solo agente y una sola herramienta.
 
 ## Fase 1 — Los 3 agentes
 
-- [ ] `engine/agents.ts`: system prompts de `plan`, `build`, `e2e`.
-- [ ] Restringir el **set de herramientas por agente** (Plan = solo lectura).
-- [ ] La UI manda `agentId` con cada mensaje; el motor lo usa.
-- [ ] `AgentSwitcher` en la UI (Plan | Build | E2E) con indicación visual clara.
-- [ ] Agente Plan: emitir evento `plan` (markdown) y render `PlanView` con
-      botón **Aprobar**.
-- [ ] Agente Build: herramientas `edit_file`, `list_dir`, `search`,
-      `run_command`.
-- [ ] `run_command` con **confirmación humana** antes de ejecutar.
+- [x] `engine/agents.ts`: system prompts de `plan`, `build`, `e2e` (Plan usa
+      `submit_plan`; Build/E2E describen list_dir/search/run_command).
+- [x] Restringir el **set de herramientas por agente** (`tools/registry.ts`):
+      Plan = sólo lectura + `submit_plan`; Build/E2E = + write/edit/run_command.
+- [x] La UI manda `agentId` con cada mensaje; el motor lo usa (server.ts elige
+      prompt y set de tools según `agentId`).
+- [x] `AgentSwitcher` en la UI (Plan | Build | E2E) con indicación visual clara
+      (color por modo + hint visible del modo activo).
+- [x] Agente Plan: emitir evento `plan` (markdown, vía tool `submit_plan` →
+      `ctx.onPlan`) y render `PlanView` con botón **Aprobar** (aprobar conmuta a
+      Build y le pide implementar).
+- [x] Agente Build: herramientas `edit_file`, `list_dir`, `search`,
+      `run_command` (+ write_file/read_file heredadas de Fase 0).
+- [x] `run_command` con **confirmación humana** antes de ejecutar (eventos
+      `permission_request`/`permission_response`; `ctx.confirm` cableado en
+      server.ts; `PermissionCard` inline en el chat).
+
+> Verificado con tests deterministas: `sidecar/smoke-tools.ts` (21/21 ✓: suma
+> list_dir, search —substring/regex/acotado—, run_command —confirma/rechaza/sin
+> confirm— y submit_plan). Typecheck + build de ambos lados (sidecar `tsc`, UI
+> `tsc && vite build`) en verde.
 
 ---
 
@@ -168,7 +181,9 @@ de punta a punta, aunque sea con un solo agente y una sola herramienta.
       Afecta a Fase 4 pero conviene tenerlo en mente desde el inicio.
 - [x] **Estado en la UI:** **Zustand** (un store por dominio; empezar con el de
       sesión). Estado efímero de componente puede quedar en `useState`.
-- [ ] **Confirmaciones:** modal vs inline en el chat.
+- [x] **Confirmaciones:** **inline en el chat** (`PermissionCard` al pie de la
+      conversación). Razón: mantiene el comando visible en contexto junto a la
+      tool-card que lo disparó y no roba el foco como un modal. Resuelto en Fase 1.
 - [ ] ¿Cuándo activar **compaction** para conversaciones largas? (Fase 2-3).
 
 ---
