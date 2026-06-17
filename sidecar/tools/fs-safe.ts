@@ -3,7 +3,8 @@
 // `../` (chequeo léxico) ni vía symlinks que apunten afuera (chequeo real).
 
 import { resolve, relative, isAbsolute, dirname, basename, sep } from "node:path";
-import { readFile, writeFile, mkdir, stat, realpath } from "node:fs/promises";
+import { readFile, writeFile, mkdir, stat, realpath, readdir } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 
 import { ToolError, type ToolContext } from "./types";
 
@@ -25,7 +26,7 @@ export function resolveWithinProject(p: string, ctx: ToolContext): string {
  * resolvemos el path real del ancestro que ya existe y re-verificamos que siga
  * dentro de la raíz real antes de leer/escribir.
  */
-async function secureResolveWithinProject(
+export async function secureResolveWithinProject(
   p: string,
   ctx: ToolContext,
 ): Promise<string> {
@@ -89,4 +90,13 @@ export async function existsWithinProject(
   } catch {
     return false;
   }
+}
+
+/** Lista las entradas (con tipo) de un directorio del proyecto, ya validado. */
+export async function readdirWithinProject(
+  p: string,
+  ctx: ToolContext,
+): Promise<Dirent[]> {
+  const abs = await secureResolveWithinProject(p, ctx);
+  return readdir(abs, { withFileTypes: true });
 }

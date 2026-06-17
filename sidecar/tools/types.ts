@@ -8,12 +8,31 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import type { ToolSpec } from "../providers/types";
 import type { SnapshotStore } from "../edit/hashline/snapshot-store";
 
+/** Petición de confirmación humana para una acción difícil de revertir. */
+export interface PermissionRequest {
+  /** Comando de shell que se quiere ejecutar. */
+  command: string;
+  /** Directorio de trabajo (relativo al proyecto) donde correría. */
+  cwd?: string;
+}
+
 /** Contexto que recibe cada `run`: proyecto activo + snapshots de la sesión. */
 export interface ToolContext {
   /** Raíz del proyecto activo. Todas las rutas se resuelven dentro de aquí. */
   projectRoot: string;
   /** Store de snapshots de la sesión (lo usan read_file/edit_file). */
   snapshots: SnapshotStore;
+  /**
+   * Pide confirmación humana antes de una acción irreversible (run_command).
+   * Resuelve `true` si el usuario aprueba. El server la cablea contra la UI;
+   * si no está provista (p. ej. en tests), la acción debe asumirse DENEGADA.
+   */
+  confirm?: (req: PermissionRequest) => Promise<boolean>;
+  /**
+   * Presenta un plan en markdown al usuario (lo usa submit_plan del agente
+   * Plan). El server lo cablea a un evento `plan` hacia la UI.
+   */
+  onPlan?: (markdown: string) => void;
 }
 
 export interface ToolResult {

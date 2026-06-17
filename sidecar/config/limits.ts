@@ -14,6 +14,28 @@ export const MAX_EDIT_INPUT_BYTES = 1024 * 1024; // 1 MB
 /** Cardinalidad máxima de operaciones en un único edit_file. */
 export const MAX_EDIT_OPS = 500;
 
+// ── list_dir / search (tools/list-dir.ts, tools/search.ts) ───────────────────
+
+/** Máximo de entradas que devuelve un list_dir (se trunca con aviso). */
+export const MAX_LIST_ENTRIES = 500;
+
+/** Máximo de coincidencias que devuelve un search (se trunca con aviso). */
+export const MAX_SEARCH_RESULTS = 200;
+
+/** Archivos más grandes que esto se saltan al hacer search (probablemente binarios). */
+export const MAX_SEARCH_FILE_BYTES = 512 * 1024; // 512 KB
+
+/** Tope de archivos visitados en un search, cortafuegos contra árboles enormes. */
+export const MAX_SEARCH_FILES = 5000;
+
+// ── run_command (tools/run-command.ts) ───────────────────────────────────────
+
+/** Tiempo máximo de un run_command antes de matarlo. */
+export const MAX_COMMAND_MS = 120_000; // 2 min
+
+/** Bytes de salida (stdout+stderr combinados) retenidos de un run_command. */
+export const MAX_COMMAND_OUTPUT_BYTES = 100_000; // ~100 KB
+
 // ── Agent loop (engine/loop.ts) ──────────────────────────────────────────────
 
 /** Tope de turnos para evitar bucles infinitos de tool-calling. */
