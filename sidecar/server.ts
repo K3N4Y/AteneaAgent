@@ -1,0 +1,129 @@
+// Entry point del sidecar: levanta el transporte (WebSocket local) y cablea el
+// motor. La UI se conecta, manda { type: "user_message", ... } y recibe un
+// stream de EngineEvent.
+
+import { WebSocketServer, WebSocket } from "ws";
+import { randomUUID } from "node:crypto";
+
+import { registerBuiltinProviders } from "./providers/registry";
+import { defaultProviderModel } from "./config/models";
+import { hasApiKey, missingKeyMessage } from "./config/secrets";
+import { SessionStore } from "./session/store";
+import { toolsForAgent } from "./tools/registry";
+import { systemPromptFor } from "./engine/agents";
+import { runAgent } from "./engine/loop";
+import type { EngineEvent, IncomingMessage } from "./engine/events";
+
+const PORT = Number(process.env.MYAGENT_SIDECAR_PORT) || 8137;
+const HOST = "127.0.0.1";
+
+registerBuiltinProviders();
+const { providerId, model } = defaultProviderModel();
+const sessions = new SessionStore();
+
+// Si la cáscara que nos lanzó muere (Ctrl-C, crash), nos autoterminamos para no
+// quedar huérfanos ocupando el puerto. La cáscara nos pasa su PID por env.
+watchParent();
+
+const wss = new WebSocketServer({ host: HOST, port: PORT });
+
+wss.on("listening", () => {
+  console.log(`[sidecar] escuchando en ws://${HOST}:${PORT}`);
+  console.log(`[sidecar] proveedor=${providerId} modelo=${model}`);
+});
+
+function watchParent(): void {
+  const parent = Number(process.env.MYAGENT_PARENT_PID);
+  if (!parent) return;
+  setInterval(() => {
+    try {
+      process.kill(parent, 0); // señal 0 = "¿existe?"
+    } catch {
+      console.log("[sidecar] la cáscara murió; cerrando.");
+      process.exit(0);
+    }
+  }, 2000).unref();
+}
+
+wss.on("connection", (ws: WebSocket) => {
+  const sessionId = randomUUID();
+  let running = false;
+  let controller: AbortController | undefined;
+
+  const emit = (event: EngineEvent) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
+  };
+
+  emit({ type: "ready", providerId, model });
+
+  ws.on("message", async (raw) => {
+    let msg: IncomingMessage;
+    try {
+      msg = JSON.parse(raw.toString()) as IncomingMessage;
+    } catch {
+      emit({ type: "error", message: "Mensaje no es JSON válido." });
+      return;
+    }
+
+    if (msg.type === "abort") {
+      controller?.abort();
+      return;
+    }
+
+    if (msg.type !== "user_message") return;
+
+    if (running) {
+      emit({ type: "error", message: "El agente está ocupado con otro turno." });
+      return;
+    }
+
+    const projectRoot = msg.projectPath || process.cwd();
+    const session = sessions.getOrCreate(sessionId, projectRoot, msg.agentId);
+    session.agentId = msg.agentId;
+    session.projectRoot = projectRoot;
+    session.messages.push({ role: "user", content: [{ type: "text", text: msg.text }] });
+
+    if (!hasApiKey(providerId)) {
+      emit({ type: "error", message: missingKeyMessage(providerId) });
+      return;
+    }
+
+    running = true;
+    controller = new AbortController();
+    try {
+      await runAgent(
+        {
+          providerId,
+          model,
+          system: systemPromptFor(msg.agentId),
+          messages: session.messages,
+          tools: toolsForAgent(msg.agentId),
+          ctx: { projectRoot: session.projectRoot, snapshots: session.snapshots },
+          signal: controller.signal,
+        },
+        emit,
+      );
+    } catch (err) {
+      emit({ type: "error", message: `Fallo del motor: ${(err as Error).message}` });
+    } finally {
+      running = false;
+      controller = undefined;
+    }
+  });
+
+  ws.on("close", () => {
+    controller?.abort();
+    sessions.delete(sessionId);
+  });
+});
+
+wss.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      `[sidecar] el puerto ${PORT} ya está en uso (¿quedó un sidecar viejo?). ` +
+        `Cerralo o cambiá MYAGENT_SIDECAR_PORT.`,
+    );
+    process.exit(1);
+  }
+  console.error("[sidecar] error del WebSocketServer:", err);
+});

@@ -1,0 +1,24 @@
+{
+  "name": "myagent-sidecar",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Motor del agente de MyAgent (TypeScript, corre como sidecar de Tauri)",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch server.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "openai": "^4.77.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3"
+  }
+}
