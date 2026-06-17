@@ -87,6 +87,9 @@ wss.on("connection", (ws: WebSocket) => {
       }
       activeProviderId = msg.providerId;
       activeModel = msg.model;
+      // ponytail: log mínimo para que la UI tenga señal visible en la terminal
+      // de que el mensaje llegó (antes el handler era no-op en builds viejos).
+      console.log(`[sidecar] reconfigurado: provider=${activeProviderId} model=${activeModel} key=${msg.apiKey ? "***" : "(vacía)"}`);
       emit({ type: "config_ok", providerId: activeProviderId, model: activeModel });
       return;
     }
