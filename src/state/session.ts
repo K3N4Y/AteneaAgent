@@ -14,6 +14,34 @@ export interface UiToolCall {
   done: boolean;
 }
 
+/**
+ * Entrada del log de desarrollo. Captura el tráfico crudo con el sidecar para
+ * diagnosticar "el agente no responde": `dir` indica la dirección (← entrante,
+ * → saliente, • sistema/conexión), `level` resalta los errores en rojo, y
+ * `detail` (opcional) guarda el JSON/payload completo, mostrado plegado.
+ * Las entradas `stream` coalescen los deltas de streaming en una sola fila.
+ */
+export interface LogEntry {
+  id: number;
+  ts: number;
+  dir: "in" | "out" | "sys";
+  level: "info" | "error";
+  text: string;
+  detail?: string;
+  /** Si está presente, esta fila acumula deltas de streaming de ese tipo. */
+  stream?: string;
+  /** Caracteres acumulados en una fila de streaming. */
+  bytes?: number;
+}
+
+/** Tope del buffer: descartamos las entradas más viejas para no crecer sin fin. */
+const MAX_LOGS = 600;
+let logSeq = 0;
+
+function capLogs(logs: LogEntry[]): LogEntry[] {
+  return logs.length > MAX_LOGS ? logs.slice(logs.length - MAX_LOGS) : logs;
+}
+
 export type Message =
   | { role: "user"; text: string }
   | { role: "assistant"; text: string; toolCalls: UiToolCall[] };
@@ -25,10 +53,16 @@ interface SessionState {
   connected: boolean;
   providerId?: string;
   model?: string;
+  logs: LogEntry[];
 
   setAgent(id: AgentId): void;
   setConnected(connected: boolean): void;
   onReady(providerId: string, model: string): void;
+
+  // Log de desarrollo: lo alimenta transport/client.ts; lo lee LogsPanel.
+  pushLog(entry: Omit<LogEntry, "id" | "ts">): void;
+  appendStreamLog(dir: LogEntry["dir"], stream: string, text: string): void;
+  clearLogs(): void;
 
   // Acciones llamadas por transport/client.ts con cada evento del motor.
   startUserTurn(text: string): void; // agrega msg user + msg assistant vacío
@@ -63,10 +97,46 @@ export const useSession = create<SessionState>((set) => ({
   messages: [],
   streaming: false,
   connected: false,
+  logs: [],
 
   setAgent: (agentId) => set({ agentId }),
   setConnected: (connected) => set({ connected }),
   onReady: (providerId, model) => set({ providerId, model, connected: true }),
+
+  pushLog: (entry) =>
+    set((s) => ({
+      logs: capLogs([...s.logs, { ...entry, id: ++logSeq, ts: Date.now() }]),
+    })),
+
+  // Coalesce: si la última fila ya es un stream del mismo tipo y contigua,
+  // le sumamos los caracteres en vez de empujar cientos de filas de deltas.
+  appendStreamLog: (dir, stream, text) =>
+    set((s) => {
+      const last = s.logs[s.logs.length - 1];
+      if (last && last.stream === stream) {
+        const bytes = (last.bytes ?? 0) + text.length;
+        const merged: LogEntry = {
+          ...last,
+          bytes,
+          text: `${stream} · ${bytes} chars`,
+          detail: ((last.detail ?? "") + text).slice(-2000),
+        };
+        return { logs: [...s.logs.slice(0, -1), merged] };
+      }
+      const entry: LogEntry = {
+        id: ++logSeq,
+        ts: Date.now(),
+        dir,
+        level: "info",
+        stream,
+        bytes: text.length,
+        text: `${stream} · ${text.length} chars`,
+        detail: text.slice(-2000),
+      };
+      return { logs: capLogs([...s.logs, entry]) };
+    }),
+
+  clearLogs: () => set({ logs: [] }),
 
   startUserTurn: (text) =>
     set((s) => ({
