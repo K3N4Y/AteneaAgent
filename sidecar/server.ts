@@ -81,12 +81,16 @@ wss.on("connection", (ws: WebSocket) => {
     const session = sessions.getOrCreate(sessionId, projectRoot, msg.agentId);
     session.agentId = msg.agentId;
     session.projectRoot = projectRoot;
-    session.messages.push({ role: "user", content: [{ type: "text", text: msg.text }] });
 
+    // Validar la key ANTES de persistir el mensaje: si lo empujáramos primero y
+    // saliéramos por falta de key, el mensaje quedaría en session.messages y el
+    // próximo turno válido lo reenviaría al LLM como si fuera nuevo.
     if (!hasApiKey(providerId)) {
       emit({ type: "error", message: missingKeyMessage(providerId) });
       return;
     }
+
+    session.messages.push({ role: "user", content: [{ type: "text", text: msg.text }] });
 
     running = true;
     controller = new AbortController();
