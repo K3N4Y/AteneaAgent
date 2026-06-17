@@ -5,7 +5,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
 
-import { registerBuiltinProviders } from "./providers/registry";
+import { registerBuiltinProviders, getProvider, listProviderIds } from "./providers/registry";
 import { defaultProviderModel } from "./config/models";
 import { hasApiKey, missingKeyMessage } from "./config/secrets";
 import { SessionStore } from "./session/store";
@@ -18,7 +18,11 @@ const PORT = Number(process.env.MYAGENT_SIDECAR_PORT) || 8137;
 const HOST = "127.0.0.1";
 
 registerBuiltinProviders();
-const { providerId, model } = defaultProviderModel();
+const initial = defaultProviderModel();
+// Activos: arrancan con los defaults de env, se pueden reconfigurar al vuelo
+// con un mensaje "set_config" desde la UI.
+let activeProviderId = initial.providerId;
+let activeModel = initial.model;
 const sessions = new SessionStore();
 
 // Si la cáscara que nos lanzó muere (Ctrl-C, crash), nos autoterminamos para no
@@ -29,7 +33,8 @@ const wss = new WebSocketServer({ host: HOST, port: PORT });
 
 wss.on("listening", () => {
   console.log(`[sidecar] escuchando en ws://${HOST}:${PORT}`);
-  console.log(`[sidecar] proveedor=${providerId} modelo=${model}`);
+  console.log(`[sidecar] proveedor=${activeProviderId} modelo=${activeModel}`);
+  console.log(`[sidecar] proveedores disponibles: ${listProviderIds().join(", ")}`);
 });
 
 function watchParent(): void {
@@ -54,7 +59,7 @@ wss.on("connection", (ws: WebSocket) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
   };
 
-  emit({ type: "ready", providerId, model });
+  emit({ type: "ready", providerId: activeProviderId, model: activeModel });
 
   ws.on("message", async (raw) => {
     let msg: IncomingMessage;
@@ -67,6 +72,22 @@ wss.on("connection", (ws: WebSocket) => {
 
     if (msg.type === "abort") {
       controller?.abort();
+      return;
+    }
+
+    if (msg.type === "set_config") {
+      try {
+        // Tira si el providerId no está registrado: la UI debe respetar
+        // listProviderIds() y nunca mandar uno inválido.
+        const provider = getProvider(msg.providerId);
+        provider.setApiKey?.(msg.apiKey);
+      } catch (err) {
+        emit({ type: "error", message: (err as Error).message });
+        return;
+      }
+      activeProviderId = msg.providerId;
+      activeModel = msg.model;
+      emit({ type: "config_ok", providerId: activeProviderId, model: activeModel });
       return;
     }
 
@@ -85,8 +106,8 @@ wss.on("connection", (ws: WebSocket) => {
     // Validar la key ANTES de persistir el mensaje: si lo empujáramos primero y
     // saliéramos por falta de key, el mensaje quedaría en session.messages y el
     // próximo turno válido lo reenviaría al LLM como si fuera nuevo.
-    if (!hasApiKey(providerId)) {
-      emit({ type: "error", message: missingKeyMessage(providerId) });
+    if (!hasApiKey(activeProviderId)) {
+      emit({ type: "error", message: missingKeyMessage(activeProviderId) });
       return;
     }
 
@@ -97,8 +118,8 @@ wss.on("connection", (ws: WebSocket) => {
     try {
       await runAgent(
         {
-          providerId,
-          model,
+          providerId: activeProviderId,
+          model: activeModel,
           system: systemPromptFor(msg.agentId),
           messages: session.messages,
           tools: toolsForAgent(msg.agentId),

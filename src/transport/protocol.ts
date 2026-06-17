@@ -8,6 +8,7 @@ export type AgentId = "plan" | "build" | "e2e";
 // Eventos que llegan DEL motor.
 export type IncomingEvent =
   | { type: "ready"; providerId: string; model: string }
+  | { type: "config_ok"; providerId: string; model: string }
   | { type: "assistant_delta"; text: string }
   | { type: "thinking_delta"; text: string }
   | { type: "tool_call"; id: string; name: string; input: unknown }
@@ -19,4 +20,5 @@ export type IncomingEvent =
 // Mensajes que la UI envía AL motor.
 export type OutgoingMessage =
   | { type: "user_message"; text: string; agentId: AgentId; projectPath?: string }
-  | { type: "abort" };
+  | { type: "abort" }
+  | { type: "set_config"; providerId: string; model: string; apiKey?: string };

@@ -48,4 +48,10 @@ export interface LlmProvider {
   stream(req: LlmRequest, signal?: AbortSignal): AsyncIterable<LlmStreamEvent>;
   /** Opcional: para poblar el selector de modelos de la UI. */
   listModels?(): Promise<ModelInfo[]>;
+  /**
+   * Opcional: reconfigura la credencial en caliente (mensaje "set_config" desde
+   * la UI). La próxima llamada a stream/listModels usa la nueva key. Si los
+   * adaptadores la cachean, deben invalidar el cache acá.
+   */
+  setApiKey?(key: string | undefined): void;
 }

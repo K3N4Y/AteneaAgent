@@ -22,12 +22,26 @@ export interface AbortMessage {
   type: "abort";
 }
 
-export type IncomingMessage = UserMessage | AbortMessage;
+/**
+ * Reconfigura proveedor/modelo/key al vuelo (botón ⚙ en la UI). La key es
+ * opcional: si se omite o llega vacía, se borra el override y se vuelve a la
+ * env var. El sidecar responde con `config_ok` (o `error` si el proveedor no
+ * existe).
+ */
+export interface SetConfigMessage {
+  type: "set_config";
+  providerId: string;
+  model: string;
+  apiKey?: string;
+}
+
+export type IncomingMessage = UserMessage | AbortMessage | SetConfigMessage;
 
 // ── Eventos que el motor emite a la UI (streaming) ──────────────────────────
 
 export type EngineEvent =
   | { type: "ready"; providerId: string; model: string }
+  | { type: "config_ok"; providerId: string; model: string }
   | { type: "assistant_delta"; text: string }
   | { type: "thinking_delta"; text: string }
   | { type: "tool_call"; id: string; name: string; input: unknown }

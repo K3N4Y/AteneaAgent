@@ -13,6 +13,7 @@ import type {
   ModelInfo,
   ToolSpec,
 } from "./types";
+import { getApiKey, setApiKeyOverride } from "../config/secrets";
 
 export interface OpenAICompatibleConfig {
   id: string;
@@ -30,17 +31,31 @@ const NO_KEY_PLACEHOLDER = "MYAGENT_NO_KEY";
 
 export class OpenAICompatibleProvider implements LlmProvider {
   readonly id: string;
-  private readonly client: OpenAI;
+  private client: OpenAI;
   private readonly cfg: OpenAICompatibleConfig;
-  private readonly hasKey: boolean;
+  private hasKey: boolean;
 
   constructor(cfg: OpenAICompatibleConfig) {
     this.id = cfg.id;
     this.cfg = cfg;
-    this.hasKey = Boolean(process.env[cfg.apiKeyEnv]);
+    // Lee del módulo de secrets (override en memoria > env var) para que
+    // reconfigurar al vuelo desde la UI no requiera reiniciar el sidecar.
+    const key = getApiKey(cfg.id);
+    this.hasKey = Boolean(key);
     this.client = new OpenAI({
       baseURL: cfg.baseURL,
-      apiKey: process.env[cfg.apiKeyEnv] || NO_KEY_PLACEHOLDER,
+      apiKey: key || NO_KEY_PLACEHOLDER,
+    });
+  }
+
+  /** Reconfigura la credencial; la próxima llamada usa la nueva key. */
+  setApiKey(key: string | undefined): void {
+    setApiKeyOverride(this.id, key);
+    const effective = getApiKey(this.id);
+    this.hasKey = Boolean(effective);
+    this.client = new OpenAI({
+      baseURL: this.cfg.baseURL,
+      apiKey: effective || NO_KEY_PLACEHOLDER,
     });
   }
 
