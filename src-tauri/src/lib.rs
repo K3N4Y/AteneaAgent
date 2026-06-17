@@ -52,7 +52,6 @@ fn spawn_sidecar() -> std::io::Result<Child> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .manage(SidecarProcess(Mutex::new(None)))
         .setup(|app| {
             match spawn_sidecar() {
