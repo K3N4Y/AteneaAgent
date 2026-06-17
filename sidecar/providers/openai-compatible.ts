@@ -32,10 +32,12 @@ export class OpenAICompatibleProvider implements LlmProvider {
   readonly id: string;
   private readonly client: OpenAI;
   private readonly cfg: OpenAICompatibleConfig;
+  private readonly hasKey: boolean;
 
   constructor(cfg: OpenAICompatibleConfig) {
     this.id = cfg.id;
     this.cfg = cfg;
+    this.hasKey = Boolean(process.env[cfg.apiKeyEnv]);
     this.client = new OpenAI({
       baseURL: cfg.baseURL,
       apiKey: process.env[cfg.apiKeyEnv] || NO_KEY_PLACEHOLDER,
@@ -43,6 +45,10 @@ export class OpenAICompatibleProvider implements LlmProvider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
+    // Sin key real no tiene sentido pegarle a /models con el placeholder y
+    // depender de un 401 "limpio" (otro gateway podría colgar o devolver basura):
+    // vamos directo al catálogo público de fallback.
+    if (!this.hasKey) return this.listModelsFallback();
     try {
       const res = await this.client.models.list();
       const data = res.data ?? [];
@@ -70,6 +76,17 @@ export class OpenAICompatibleProvider implements LlmProvider {
     req: LlmRequest,
     signal?: AbortSignal,
   ): AsyncIterable<LlmStreamEvent> {
+    // Defensa en profundidad: el server ya filtra por hasApiKey antes de llegar
+    // acá, pero si falta la key cortamos en seco con un mensaje claro en vez de
+    // mandar el placeholder y depender de que el server devuelva un 401 limpio.
+    if (!this.hasKey) {
+      yield {
+        type: "error",
+        message: `Falta la API key del proveedor "${this.id}" (definí ${this.cfg.apiKeyEnv}).`,
+      };
+      return;
+    }
+
     // Acumulador de tool_calls: en streaming los `arguments` llegan en TROZOS y
     // hay que concatenarlos antes de JSON.parse.
     const acc = new Map<number, { id?: string; name?: string; args: string }>();
@@ -91,8 +108,13 @@ export class OpenAICompatibleProvider implements LlmProvider {
       );
 
       for await (const chunk of stream) {
-        const choice = chunk.choices?.[0];
+        // El chunk terminal de usage de OpenAI llega con choices:[]; por eso
+        // capturamos usage ANTES del guard de choice (moverlo abajo lo perdería).
+        // El `done` se emite recién al drenar el stream (después de este for),
+        // así que nunca sale "antes de tiempo" por un chunk de usage suelto.
         if (chunk.usage) usage = chunk.usage;
+
+        const choice = chunk.choices?.[0];
         if (!choice) continue;
 
         const delta = choice.delta;

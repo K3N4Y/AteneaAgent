@@ -2,7 +2,10 @@
 // línea (ver registerBuiltinProviders más abajo).
 
 import type { LlmProvider } from "./types";
-import { OpenAICompatibleProvider } from "./openai-compatible";
+import {
+  OpenAICompatibleProvider,
+  type OpenAICompatibleConfig,
+} from "./openai-compatible";
 
 const registry = new Map<string, LlmProvider>();
 
@@ -21,22 +24,36 @@ export function listProviderIds(): string[] {
 }
 
 /**
- * Registra los proveedores disponibles al arrancar el sidecar.
- *
- * Hoy: sólo OpenCode Zen (OpenAI-compatible). Para agregar OpenAI "real" u otro
- * gateway compatible basta una línea más con otra baseURL/env de la key.
+ * Gateways OpenAI-compatible que comparten el MISMO adaptador: sólo cambian
+ * baseURL y la env var de la key. Agregar otro = una entrada más en esta tabla.
+ * (OpenAI "real" entraría acá; un proveedor con protocolo propio —Anthropic—
+ * necesita su propio adaptador y se registra aparte.)
  */
+const ZEN_PROVIDERS: OpenAICompatibleConfig[] = [
+  // OpenCode Zen: pago por uso.
+  {
+    id: "opencode",
+    baseURL: "https://opencode.ai/zen/v1",
+    apiKeyEnv: "OPENCODE_ZEN_API_KEY",
+    // Fallback del catálogo de modelos si GET /models no responde.
+    modelsFallbackUrl: "https://models.dev/api.json",
+    modelsFallbackPath: "opencode",
+  },
+  // OpenCode Go: plan de suscripción mensual sobre el mismo gateway Zen.
+  {
+    id: "opencode-go",
+    baseURL: "https://opencode.ai/zen/go/v1",
+    apiKeyEnv: "OPENCODE_GO_API_KEY",
+    modelsFallbackUrl: "https://models.dev/api.json",
+    modelsFallbackPath: "opencode",
+  },
+];
+
+/** Registra los proveedores disponibles al arrancar el sidecar. */
 export function registerBuiltinProviders(): void {
-  registerProvider(
-    new OpenAICompatibleProvider({
-      id: "opencode",
-      baseURL: "https://opencode.ai/zen/v1",
-      apiKeyEnv: "OPENCODE_ZEN_API_KEY",
-      // Fallback del catálogo de modelos si GET /models no responde.
-      modelsFallbackUrl: "https://models.dev/api.json",
-      modelsFallbackPath: "opencode",
-    }),
-  );
+  for (const cfg of ZEN_PROVIDERS) {
+    registerProvider(new OpenAICompatibleProvider(cfg));
+  }
 
   // registerProvider(new OpenAICompatibleProvider({ id: "openai", baseURL: "https://api.openai.com/v1", apiKeyEnv: "OPENAI_API_KEY" }));
   // registerProvider(new AnthropicProvider()); // ← adaptador propio, a futuro
