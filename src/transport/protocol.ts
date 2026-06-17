@@ -13,6 +13,7 @@ export type IncomingEvent =
   | { type: "thinking_delta"; text: string }
   | { type: "tool_call"; id: string; name: string; input: unknown }
   | { type: "tool_result"; id: string; name: string; output: string; isError: boolean }
+  | { type: "permission_request"; id: string; command: string; cwd?: string }
   | { type: "plan"; markdown: string }
   | { type: "done"; usage?: unknown }
   | { type: "error"; message: string };
@@ -21,4 +22,5 @@ export type IncomingEvent =
 export type OutgoingMessage =
   | { type: "user_message"; text: string; agentId: AgentId; projectPath?: string }
   | { type: "abort" }
-  | { type: "set_config"; providerId: string; model: string; apiKey?: string };
+  | { type: "set_config"; providerId: string; model: string; apiKey?: string }
+  | { type: "permission_response"; id: string; approved: boolean };

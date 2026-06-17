@@ -95,6 +95,14 @@ function logIncoming(ev: IncomingEvent): void {
         detail: ev.output.slice(0, 2000),
       });
       return;
+    case "permission_request":
+      store.pushLog({
+        dir: "in",
+        level: "info",
+        text: `permission_request · ${ev.command}`,
+        detail: ev.cwd ? `cwd: ${ev.cwd}` : undefined,
+      });
+      return;
     case "plan":
       store.pushLog({ dir: "in", level: "info", text: `plan · ${ev.markdown.length} chars`, detail: ev.markdown.slice(0, 2000) });
       return;
@@ -122,6 +130,9 @@ function logOutgoing(msg: OutgoingMessage, sent: boolean): void {
     case "set_config":
       // La API key NUNCA se registra: sólo si venía o no.
       text = `set_config · provider=${msg.providerId} model=${msg.model} key=${msg.apiKey ? "presente" : "(vacía)"}`;
+      break;
+    case "permission_response":
+      text = `permission_response · ${msg.approved ? "aprobado" : "rechazado"}`;
       break;
   }
   if (sent) {
@@ -169,9 +180,11 @@ function dispatch(event: IncomingEvent): void {
     case "tool_result":
       s.resolveToolCall(event.id, event.output, event.isError);
       break;
+    case "permission_request":
+      s.setPendingPermission({ id: event.id, command: event.command, cwd: event.cwd });
+      break;
     case "plan":
-      // PlanView llega en Fase 1; por ahora lo tratamos como texto.
-      s.appendAssistantDelta(event.markdown);
+      s.setPlan(event.markdown);
       break;
     case "done":
       s.finishTurn();
@@ -216,6 +229,24 @@ export function sendUserMessage(text: string): void {
 /** Abortar el turno en curso. */
 export function abortTurn(): void {
   send({ type: "abort" });
+}
+
+/** Responder a una confirmación de comando (run_command). */
+export function respondPermission(id: string, approved: boolean): void {
+  useSession.getState().clearPendingPermission();
+  send({ type: "permission_response", id, approved });
+}
+
+/**
+ * Aprobar el plan propuesto por el agente Plan: lo marca como aprobado, cambia
+ * al agente Build y le pide implementarlo. El plan ya está en el historial de
+ * la sesión, así que Build lo ve como contexto.
+ */
+export function approvePlan(): void {
+  const s = useSession.getState();
+  s.approveLastPlan();
+  s.setAgent("build");
+  sendUserMessage("Implementá el plan aprobado, paso a paso.");
 }
 
 /** Reconfigura proveedor/modelo/key al vuelo. Persiste en localStorage. */

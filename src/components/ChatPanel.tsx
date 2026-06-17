@@ -3,15 +3,17 @@
 import { useEffect, useRef } from "react";
 import { useSession } from "../state/session";
 import { MessageBubble } from "./MessageBubble";
+import { PermissionCard } from "./PermissionCard";
 
 export function ChatPanel() {
   const messages = useSession((s) => s.messages);
   const streaming = useSession((s) => s.streaming);
+  const pendingPermission = useSession((s) => s.pendingPermission);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, streaming]);
+  }, [messages, streaming, pendingPermission]);
 
   return (
     <div className="chat-panel">
@@ -26,6 +28,7 @@ export function ChatPanel() {
       {messages.map((m, i) => (
         <MessageBubble key={i} message={m} streaming={streaming} />
       ))}
+      <PermissionCard />
       <div ref={endRef} />
     </div>
   );

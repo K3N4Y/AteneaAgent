@@ -42,9 +42,22 @@ function capLogs(logs: LogEntry[]): LogEntry[] {
   return logs.length > MAX_LOGS ? logs.slice(logs.length - MAX_LOGS) : logs;
 }
 
+/** Plan emitido por el agente Plan, adjunto a su mensaje de asistente. */
+export interface UiPlan {
+  markdown: string;
+  approved: boolean;
+}
+
 export type Message =
   | { role: "user"; text: string }
-  | { role: "assistant"; text: string; toolCalls: UiToolCall[] };
+  | { role: "assistant"; text: string; toolCalls: UiToolCall[]; plan?: UiPlan };
+
+/** Confirmación de comando pendiente (run_command esperando al usuario). */
+export interface PendingPermission {
+  id: string;
+  command: string;
+  cwd?: string;
+}
 
 interface SessionState {
   agentId: AgentId;
@@ -54,6 +67,8 @@ interface SessionState {
   providerId?: string;
   model?: string;
   logs: LogEntry[];
+  /** Comando esperando confirmación humana (run_command). */
+  pendingPermission?: PendingPermission;
 
   setAgent(id: AgentId): void;
   setConnected(connected: boolean): void;
@@ -69,6 +84,10 @@ interface SessionState {
   appendAssistantDelta(text: string): void;
   addToolCall(id: string, name: string, input: unknown): void;
   resolveToolCall(id: string, output: string, isError: boolean): void;
+  setPlan(markdown: string): void; // adjunta el plan al último mensaje del asistente
+  approveLastPlan(): void; // marca como aprobado el plan más reciente
+  setPendingPermission(p: PendingPermission): void;
+  clearPendingPermission(): void;
   finishTurn(): void;
   pushErrorNote(message: string): void;
 }
@@ -171,11 +190,38 @@ export const useSession = create<SessionState>((set) => ({
       })),
     })),
 
-  finishTurn: () => set({ streaming: false }),
+  setPlan: (markdown) =>
+    set((s) => ({
+      messages: updateLastAssistant(s.messages, (m) => ({
+        ...m,
+        plan: { markdown, approved: false },
+      })),
+    })),
+
+  approveLastPlan: () =>
+    set((s) => {
+      // Marca aprobado el plan más reciente (el único accionable).
+      for (let i = s.messages.length - 1; i >= 0; i--) {
+        const m = s.messages[i];
+        if (m.role === "assistant" && m.plan && !m.plan.approved) {
+          const copy = s.messages.slice();
+          copy[i] = { ...m, plan: { ...m.plan, approved: true } };
+          return { messages: copy };
+        }
+      }
+      return {};
+    }),
+
+  setPendingPermission: (pendingPermission) => set({ pendingPermission }),
+  clearPendingPermission: () => set({ pendingPermission: undefined }),
+
+  // Al terminar o fallar el turno, una confirmación pendiente ya no aplica.
+  finishTurn: () => set({ streaming: false, pendingPermission: undefined }),
 
   pushErrorNote: (message) =>
     set((s) => ({
       streaming: false,
+      pendingPermission: undefined,
       messages: updateLastAssistant(s.messages, (m) => ({
         ...m,
         text: m.text ? `${m.text}\n\n⚠️ ${message}` : `⚠️ ${message}`,

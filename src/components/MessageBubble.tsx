@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 
 import type { Message } from "../state/session";
 import { ToolCallCard } from "./ToolCallCard";
+import { PlanView } from "./PlanView";
 
 export function MessageBubble({ message, streaming }: { message: Message; streaming: boolean }) {
   if (message.role === "user") {
@@ -17,7 +18,7 @@ export function MessageBubble({ message, streaming }: { message: Message; stream
     );
   }
 
-  const empty = !message.text && message.toolCalls.length === 0;
+  const empty = !message.text && message.toolCalls.length === 0 && !message.plan;
   return (
     <div className="msg msg-assistant">
       <div className="msg-role">agente</div>
@@ -28,6 +29,7 @@ export function MessageBubble({ message, streaming }: { message: Message; stream
         {message.toolCalls.map((c) => (
           <ToolCallCard key={c.id} call={c} />
         ))}
+        {message.plan && <PlanView plan={message.plan} />}
         {empty && streaming && <span className="cursor">▍</span>}
       </div>
     </div>

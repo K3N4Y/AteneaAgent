@@ -265,6 +265,124 @@ body {
   opacity: 0.5;
   cursor: default;
 }
+.agent-hint {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+.agent-hint.agent-plan {
+  color: #c9a7ff;
+}
+.agent-hint.agent-build {
+  color: var(--accent);
+}
+.agent-hint.agent-e2e {
+  color: var(--ok);
+}
+
+/* ── Plan view (agente Plan) ─────────────────────────────── */
+.plan-view {
+  border: 1px solid #4a3d6b;
+  border-left: 3px solid #c9a7ff;
+  border-radius: 8px;
+  background: var(--bg-2);
+  margin: 10px 0;
+  overflow: hidden;
+}
+.plan-view.approved {
+  border-left-color: var(--ok);
+  opacity: 0.85;
+}
+.plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.plan-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #c9a7ff;
+}
+.plan-approved-tag {
+  font-size: 12px;
+  color: var(--ok);
+  font-weight: 600;
+}
+.plan-body {
+  padding: 4px 14px;
+}
+.plan-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px 12px;
+}
+.plan-approve {
+  background: #c9a7ff;
+  color: #0e1116;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.plan-approve:disabled {
+  background: var(--bg-3);
+  color: var(--muted);
+  cursor: default;
+}
+
+/* ── Permission card (run_command) ───────────────────────── */
+.perm-card {
+  border: 1px solid #6b5a3d;
+  border-left: 3px solid #e0b04a;
+  border-radius: 8px;
+  background: var(--bg-2);
+  padding: 12px 14px;
+}
+.perm-head {
+  font-weight: 700;
+  font-size: 13px;
+  color: #e0b04a;
+  margin-bottom: 8px;
+}
+.perm-command {
+  margin: 0 0 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.perm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.perm-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.perm-deny {
+  background: var(--bg-3);
+  color: var(--text);
+}
+.perm-deny:hover {
+  background: var(--border);
+}
+.perm-approve {
+  background: #e0b04a;
+  color: #0e1116;
+}
 
 /* ── Main / chat ────────────────────────────────────────── */
 .main {
