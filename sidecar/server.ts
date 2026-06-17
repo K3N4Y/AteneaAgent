@@ -55,6 +55,15 @@ wss.on("connection", (ws: WebSocket) => {
   let running = false;
   let controller: AbortController | undefined;
 
+  // Confirmaciones de run_command pendientes: id → resolver de la promesa que
+  // el loop está esperando. Se resuelven con la respuesta del usuario, o con
+  // `false` si el turno se aborta o la conexión se cierra.
+  const pendingPermissions = new Map<string, (approved: boolean) => void>();
+  const drainPermissions = () => {
+    for (const resolve of pendingPermissions.values()) resolve(false);
+    pendingPermissions.clear();
+  };
+
   const emit = (event: EngineEvent) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
   };
@@ -72,6 +81,18 @@ wss.on("connection", (ws: WebSocket) => {
 
     if (msg.type === "abort") {
       controller?.abort();
+      // Un comando en confirmación quedaría colgado esperando respuesta: lo
+      // resolvemos como denegado para que el loop pueda cerrar el turno.
+      drainPermissions();
+      return;
+    }
+
+    if (msg.type === "permission_response") {
+      const resolve = pendingPermissions.get(msg.id);
+      if (resolve) {
+        pendingPermissions.delete(msg.id);
+        resolve(msg.approved);
+      }
       return;
     }
 
@@ -126,7 +147,20 @@ wss.on("connection", (ws: WebSocket) => {
           system: systemPromptFor(msg.agentId),
           messages: session.messages,
           tools: toolsForAgent(msg.agentId),
-          ctx: { projectRoot: session.projectRoot, snapshots: session.snapshots },
+          ctx: {
+            projectRoot: session.projectRoot,
+            snapshots: session.snapshots,
+            // run_command pide confirmación: emitimos un permission_request y
+            // esperamos a que la UI responda con permission_response.
+            confirm: (req) =>
+              new Promise<boolean>((resolve) => {
+                const id = randomUUID();
+                pendingPermissions.set(id, resolve);
+                emit({ type: "permission_request", id, command: req.command, cwd: req.cwd });
+              }),
+            // submit_plan (agente Plan) presenta el plan como evento `plan`.
+            onPlan: (markdown) => emit({ type: "plan", markdown }),
+          },
           signal: controller.signal,
         },
         emit,
@@ -141,6 +175,7 @@ wss.on("connection", (ws: WebSocket) => {
 
   ws.on("close", () => {
     controller?.abort();
+    drainPermissions();
     sessions.delete(sessionId);
   });
 });

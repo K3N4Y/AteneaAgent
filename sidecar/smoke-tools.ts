@@ -12,6 +12,10 @@ import { SnapshotStore } from "./edit/hashline/snapshot-store";
 import { readFileTool } from "./tools/read";
 import { writeFileTool } from "./tools/write";
 import { editFileTool } from "./tools/edit";
+import { listDirTool } from "./tools/list-dir";
+import { searchTool } from "./tools/search";
+import { runCommandTool } from "./tools/run-command";
+import { submitPlanTool } from "./tools/submit-plan";
 import type { ToolContext } from "./tools/types";
 
 let failures = 0;
@@ -103,6 +107,39 @@ async function main() {
   // 8. ruta fuera del proyecto → error.
   const r4 = await readFileTool.run({ path: "../../etc/passwd" }, ctx);
   check("read_file rechaza ruta fuera del proyecto", r4.isError, r4.output);
+
+  // ── Fase 1: list_dir / search / run_command / submit_plan ──────────────────
+
+  // 9. list_dir lista entradas y marca los directorios con "/".
+  await writeFileTool.run({ path: "sub/b.ts", content: "export const ok = true;\n" }, ctx);
+  const ld = await listDirTool.run({}, ctx);
+  check("list_dir lista a.ts", !ld.isError && ld.output.includes("a.ts"), ld.output);
+  check("list_dir marca el dir con /", ld.output.includes("sub/"), ld.output);
+
+  // 10. search encuentra contenido y lo ubica como path:línea:texto.
+  const sr = await searchTool.run({ query: "const Y" }, ctx);
+  check("search encuentra coincidencia en a.ts", !sr.isError && sr.output.includes("a.ts:"), sr.output);
+  const sr0 = await searchTool.run({ query: "no-existe-zzz" }, ctx);
+  check("search sin coincidencias", !sr0.isError && sr0.output.includes("Sin coincidencias"), sr0.output);
+  const srx = await searchTool.run({ query: "const\\s+ok", regex: true, path: "sub" }, ctx);
+  check("search regex acotado a subdir", !srx.isError && srx.output.includes("sub/b.ts:"), srx.output);
+
+  // 11. run_command: confirma true ⇒ ejecuta; false ⇒ no; sin confirm ⇒ denegado.
+  const allow: ToolContext = { ...ctx, confirm: async () => true };
+  const rc = await runCommandTool.run({ command: "echo hola-mundo" }, allow);
+  check("run_command corre con confirmación", !rc.isError && rc.output.includes("hola-mundo"), rc.output);
+  const deny: ToolContext = { ...ctx, confirm: async () => false };
+  const rcd = await runCommandTool.run({ command: "echo no-deberia" }, deny);
+  check("run_command rechazado no ejecuta", rcd.isError && rcd.output.includes("rechazó"), rcd.output);
+  const rcn = await runCommandTool.run({ command: "echo nada" }, ctx);
+  check("run_command sin confirm asume denegado", rcn.isError, rcn.output);
+
+  // 12. submit_plan emite el plan vía onPlan.
+  let captured = "";
+  const planCtx: ToolContext = { ...ctx, onPlan: (md) => { captured = md; } };
+  const sp = await submitPlanTool.run({ markdown: "# Plan\n1. paso" }, planCtx);
+  check("submit_plan ok", !sp.isError, sp.output);
+  check("submit_plan emite el markdown por onPlan", captured.includes("# Plan"), captured);
 
   rmSync(root, { recursive: true, force: true });
   console.log(failures === 0 ? "\nTODO OK ✓" : `\n${failures} FALLO(S) ✗`);

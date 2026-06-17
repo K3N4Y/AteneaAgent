@@ -35,7 +35,21 @@ export interface SetConfigMessage {
   apiKey?: string;
 }
 
-export type IncomingMessage = UserMessage | AbortMessage | SetConfigMessage;
+/**
+ * Respuesta del usuario a un `permission_request`: aprueba o rechaza la acción
+ * solicitada. El `id` enlaza con el request emitido por el motor.
+ */
+export interface PermissionResponseMessage {
+  type: "permission_response";
+  id: string;
+  approved: boolean;
+}
+
+export type IncomingMessage =
+  | UserMessage
+  | AbortMessage
+  | SetConfigMessage
+  | PermissionResponseMessage;
 
 // ── Eventos que el motor emite a la UI (streaming) ──────────────────────────
 
@@ -46,6 +60,7 @@ export type EngineEvent =
   | { type: "thinking_delta"; text: string }
   | { type: "tool_call"; id: string; name: string; input: unknown }
   | { type: "tool_result"; id: string; name: string; output: string; isError: boolean }
+  | { type: "permission_request"; id: string; command: string; cwd?: string }
   | { type: "plan"; markdown: string }
   | { type: "done"; usage?: unknown }
   | { type: "error"; message: string };
