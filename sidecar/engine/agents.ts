@@ -26,7 +26,7 @@ cero: estructura de carpetas, dependencias, código, UI y pruebas, usando
 write_file/edit_file/read_file. Planificá primero y luego implementá de forma
 ordenada, archivo por archivo.`;
 
-const PROMPTS: Record<AgentId, string> = { plan: PLAN, build: BUILD, e2e: E2E };
+const PROMPTS = { plan: PLAN, build: BUILD, e2e: E2E } satisfies Record<AgentId, string>;
 
 export function systemPromptFor(agentId: AgentId): string {
   return PROMPTS[agentId] ?? BUILD;
