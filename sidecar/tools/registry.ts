@@ -7,17 +7,36 @@ import type { Tool } from "./types";
 import { readFileTool } from "./read";
 import { writeFileTool } from "./write";
 import { editFileTool } from "./edit";
+import { listDirTool } from "./list-dir";
+import { searchTool } from "./search";
+import { runCommandTool } from "./run-command";
+import { submitPlanTool } from "./submit-plan";
 
-export const ALL_TOOLS: Tool[] = [readFileTool, writeFileTool, editFileTool];
+export const ALL_TOOLS: Tool[] = [
+  readFileTool,
+  writeFileTool,
+  editFileTool,
+  listDirTool,
+  searchTool,
+  runCommandTool,
+  submitPlanTool,
+];
 
 /**
- * Tools habilitadas por agente. En Fase 0 alcanza con read/write/edit; Fase 1
- * agrega list_dir/search/run_command y afina la separación.
+ * Tools habilitadas por agente (Fase 1):
+ * - plan: sólo lectura/exploración + submit_plan para presentar el plan. NUNCA
+ *   escribe ni corre comandos.
+ * - build: lectura + escritura/edición + exploración + run_command (con
+ *   confirmación humana).
+ * - e2e: igual que build; el scaffolding de proyectos nuevos llega en Fase 3.
  */
+const READ_ONLY = [readFileTool, listDirTool, searchTool];
+const WRITE = [writeFileTool, editFileTool, runCommandTool];
+
 const TOOLS_BY_AGENT = {
-  plan: [readFileTool], // sólo lectura
-  build: [readFileTool, writeFileTool, editFileTool],
-  e2e: [readFileTool, writeFileTool, editFileTool],
+  plan: [...READ_ONLY, submitPlanTool],
+  build: [...READ_ONLY, ...WRITE],
+  e2e: [...READ_ONLY, ...WRITE],
 } satisfies Record<AgentId, Tool[]>;
 
 export function toolsForAgent(agentId: AgentId): Tool[] {
