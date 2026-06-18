@@ -86,13 +86,16 @@ export type IncomingMessage =
 
 // ── Eventos que el motor emite a la UI (streaming) ──────────────────────────
 
+// `parentToolId` marca un evento como originado DENTRO de un subagente (la
+// tool-call `task` que lo lanzó). Opcional: ausente en el flujo normal. La UI lo
+// usa para enrutar el evento al panel de Logs en vez del transcript principal.
 export type EngineEvent =
   | { type: "ready"; providerId: string; model: string; cwd: string }
   | { type: "config_ok"; providerId: string; model: string }
-  | { type: "assistant_delta"; text: string }
-  | { type: "thinking_delta"; text: string }
-  | { type: "tool_call"; id: string; name: string; input: unknown }
-  | { type: "tool_result"; id: string; name: string; output: string; isError: boolean }
+  | { type: "assistant_delta"; text: string; parentToolId?: string }
+  | { type: "thinking_delta"; text: string; parentToolId?: string }
+  | { type: "tool_call"; id: string; name: string; input: unknown; parentToolId?: string }
+  | { type: "tool_result"; id: string; name: string; output: string; isError: boolean; parentToolId?: string }
   | { type: "permission_request"; id: string; command: string; cwd?: string }
   | { type: "dir_listing"; reqId: string; path: string; entries: DirEntry[]; error?: string }
   | { type: "plan"; markdown: string }
