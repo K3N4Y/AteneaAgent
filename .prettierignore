@@ -1,0 +1,11 @@
+# Build outputs y artefactos generados
+**/dist
+src-tauri/target
+src-tauri/gen
+
+# Lockfiles y assets (no aportan formatear)
+**/pnpm-lock.yaml
+**/*.svg
+
+# Prosa / docs
+**/*.md
