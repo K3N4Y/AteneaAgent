@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: es-ES
+reviews:
+  profile: chill # menos nitpicks; sube a "assertive" si querés revisiones más estrictas
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  # No revises build, lockfiles ni artefactos generados.
+  path_filters:
+    - "!**/dist/**"
+    - "!**/pnpm-lock.yaml"
+    - "!src-tauri/gen/**"
+    - "!src-tauri/target/**"
+# eslint, actionlint, yamllint y gitleaks ya vienen activados por defecto.
