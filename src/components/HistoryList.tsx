@@ -6,7 +6,8 @@
 import { useState } from "react";
 import { listSessions, deleteSession, type StoredSession } from "../state/history";
 import { useSession } from "../state/session";
-import { resumeSession, startNewSession } from "../transport/client";
+import { resumeSession, startNewSession, openProject } from "../transport/client";
+import { pickProjectDir } from "./ProjectPicker";
 
 function rel(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -85,11 +86,21 @@ export function HistoryList() {
     });
   }
 
+  async function addProject() {
+    const dir = await pickProjectDir(useSession.getState().projectPath);
+    if (dir) openProject(dir);
+  }
+
   return (
     <div className="history">
-      <button className="history-new" onClick={startNewSession}>
-        + Nueva sesión
-      </button>
+      <div className="history-actions">
+        <button className="history-new" onClick={startNewSession}>
+          + Nueva sesión
+        </button>
+        <button className="history-new" onClick={addProject}>
+          + Proyecto
+        </button>
+      </div>
       {groups.length === 0 && <div className="tree-empty">Sin sesiones guardadas.</div>}
       {groups.map((g) => {
         const key = g.path ?? "";

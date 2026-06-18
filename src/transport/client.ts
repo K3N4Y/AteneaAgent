@@ -290,6 +290,12 @@ export function startNewSession(): void {
   send({ type: "load_history", messages: [], projectPath: useSession.getState().projectPath });
 }
 
+/** Cambia el proyecto de trabajo (persistido) y abre una sesión nueva en él. */
+export function openProject(dir: string): void {
+  useSession.getState().setProjectPath(dir);
+  startNewSession();
+}
+
 /** Retoma una sesión guardada: carga el transcript y reconstruye el contexto
  * del sidecar (mensajes normalizados, incluidas las tool calls). */
 export function resumeSession(stored: StoredSession): void {

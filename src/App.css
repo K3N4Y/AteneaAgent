@@ -880,7 +880,13 @@ body {
   gap: 3px;
   padding: 2px;
 }
+.history-actions {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
 .history-new {
+  flex: 1 1 0;
   background: var(--bg-3);
   border: 1px solid var(--border);
   color: var(--text);
@@ -889,7 +895,7 @@ body {
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  margin-bottom: 4px;
+  white-space: nowrap;
 }
 .history-new:hover {
   background: var(--border);

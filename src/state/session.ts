@@ -186,14 +186,19 @@ export const useSession = create<SessionState>((set) => ({
     set({ messages: [], sessionId: crypto.randomUUID(), streaming: false, pendingPermission: undefined }),
 
   loadSession: (s) =>
-    set((prev) => ({
-      messages: s.messages,
-      agentId: s.agentId,
-      projectPath: s.projectPath ?? prev.projectPath,
-      sessionId: s.id,
-      streaming: false,
-      pendingPermission: undefined,
-    })),
+    set((prev) => {
+      // Al retomar una sesión, su proyecto pasa a ser el proyecto de trabajo y
+      // se persiste (sobrevive al reinicio), igual que un setProjectPath manual.
+      if (s.projectPath) localStorage.setItem(PROJECT_KEY, s.projectPath);
+      return {
+        messages: s.messages,
+        agentId: s.agentId,
+        projectPath: s.projectPath ?? prev.projectPath,
+        sessionId: s.id,
+        streaming: false,
+        pendingPermission: undefined,
+      };
+    }),
 
   pushLog: (entry) =>
     set((s) => ({

@@ -10,19 +10,27 @@ function basename(p?: string): string {
   return parts[parts.length - 1] || p;
 }
 
+/** Abre el diálogo nativo de carpeta (con fallback a prompt fuera de Tauri).
+ * Devuelve la ruta elegida o null si se cancela. Reutilizable desde la topbar
+ * y la lista de sesiones. */
+export async function pickProjectDir(current?: string): Promise<string | null> {
+  try {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const dir = await open({ directory: true, multiple: false, defaultPath: current });
+    return typeof dir === "string" ? dir : null;
+  } catch {
+    const manual = window.prompt("Ruta absoluta del proyecto:", current ?? "");
+    return manual && manual.trim() ? manual.trim() : null;
+  }
+}
+
 export function ProjectPicker() {
   const projectPath = useSession((s) => s.projectPath);
   const setProjectPath = useSession((s) => s.setProjectPath);
 
   const pick = async () => {
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const dir = await open({ directory: true, multiple: false, defaultPath: projectPath });
-      if (typeof dir === "string") setProjectPath(dir);
-    } catch {
-      const manual = window.prompt("Ruta absoluta del proyecto:", projectPath ?? "");
-      if (manual && manual.trim()) setProjectPath(manual.trim());
-    }
+    const dir = await pickProjectDir(projectPath);
+    if (dir) setProjectPath(dir);
   };
 
   return (
