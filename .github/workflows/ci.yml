@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# Una PR que recibe varios pushes seguidos cancela los runs viejos.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            sidecar/pnpm-lock.yaml
+
+      - name: Install (root)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install (sidecar)
+        run: pnpm --dir sidecar install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Typecheck (frontend)
+        run: pnpm typecheck
+
+      - name: Typecheck (sidecar)
+        run: pnpm --dir sidecar typecheck
+
+      - name: Test (sidecar)
+        run: pnpm --dir sidecar test
