@@ -15,6 +15,13 @@ export interface UiToolCall {
   output?: string;
   isError?: boolean;
   done: boolean;
+  /**
+   * Cuánto texto del asistente existía al invocarse la tool (= m.text.length en
+   * ese instante). Es el ancla cronológica: el render intercala la tarjeta justo
+   * en ese punto del texto, así queda donde se usó y no apilada al final.
+   * Ausente en sesiones viejas persistidas → se trata como "al final" (legacy).
+   */
+  textOffset?: number;
 }
 
 /**
@@ -51,9 +58,34 @@ export interface UiPlan {
   approved: boolean;
 }
 
+/**
+ * Un tramo de razonamiento del modelo. El agente piensa, usa una tool, vuelve a
+ * pensar… cada ráfaga es un tramo distinto. `afterTools` es el ancla cronológica:
+ * cuántas tools existían cuando arrancó este tramo, así el render lo intercala
+ * justo después de esa tool (igual que `textOffset` ancla las tarjetas al texto).
+ */
+export interface ThinkingSegment {
+  text: string;
+  afterTools: number;
+}
+
 export type Message =
   | { role: "user"; text: string }
-  | { role: "assistant"; text: string; toolCalls: UiToolCall[]; plan?: UiPlan; thinking?: string };
+  | {
+      role: "assistant";
+      text: string;
+      toolCalls: UiToolCall[];
+      plan?: UiPlan;
+      // string = formato viejo persistido (un solo bloque); array = tramos nuevos.
+      thinking?: ThinkingSegment[] | string;
+    };
+
+/** Normaliza `thinking` a tramos. Tolera el string legacy de sesiones viejas. */
+export function thinkingSegments(thinking: ThinkingSegment[] | string | undefined): ThinkingSegment[] {
+  if (!thinking) return [];
+  if (typeof thinking === "string") return [{ text: thinking, afterTools: 0 }];
+  return thinking;
+}
 
 /** Confirmación de comando pendiente (run_command esperando al usuario). */
 export interface PendingPermission {
@@ -216,14 +248,25 @@ export const useSession = create<SessionState>((set) => ({
 
   appendThinkingDelta: (text) =>
     set((s) => ({
-      messages: updateLastAssistant(s.messages, (m) => ({ ...m, thinking: (m.thinking ?? "") + text })),
+      messages: updateLastAssistant(s.messages, (m) => {
+        const segs = thinkingSegments(m.thinking);
+        const last = segs[segs.length - 1];
+        // Tramo nuevo si no hay ninguno, o si entró una tool desde que empezó el
+        // último: ese corte es el que separa "pensar → usar tool → volver a pensar".
+        if (!last || last.afterTools !== m.toolCalls.length) {
+          return { ...m, thinking: [...segs, { text, afterTools: m.toolCalls.length }] };
+        }
+        const merged = segs.slice(0, -1).concat({ ...last, text: last.text + text });
+        return { ...m, thinking: merged };
+      }),
     })),
 
   addToolCall: (id, name, input) =>
     set((s) => ({
       messages: updateLastAssistant(s.messages, (m) => ({
         ...m,
-        toolCalls: [...m.toolCalls, { id, name, input, done: false }],
+        // textOffset ancla la tarjeta al punto actual del texto (orden cronológico).
+        toolCalls: [...m.toolCalls, { id, name, input, done: false, textOffset: m.text.length }],
       })),
     })),
 
