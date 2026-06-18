@@ -658,6 +658,18 @@ body {
   word-break: break-word;
 }
 
+/* Resumen de la tool `task`: el valor que devolvieron los subagentes. Igual
+   layout que tool-error pero con color de texto normal (no es un fallo). */
+.tool-summary {
+  margin: 0;
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ── Diff inline (edit_file / write_file) ────────────────── */
 .diff-view,
 .terminal-block {

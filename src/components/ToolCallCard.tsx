@@ -15,6 +15,12 @@ function summarizeInput(input: unknown): string {
     const obj = input as Record<string, unknown>;
     if (typeof obj.path === "string") return obj.path;
     if (typeof obj.command === "string") return obj.command;
+    // task: resumimos el fan-out (cuántos subagentes y de qué tipo).
+    if (Array.isArray(obj.tasks)) {
+      const tasks = obj.tasks as { subagent_type?: string }[];
+      const types = tasks.map((t) => t.subagent_type ?? "?").join(", ");
+      return `${tasks.length} subagente${tasks.length === 1 ? "" : "s"} (${types})`;
+    }
     if (typeof obj.input === "string") return obj.input.split("\n")[0].slice(0, 80);
   }
   const s = JSON.stringify(input ?? {});
@@ -42,11 +48,19 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
         <span className="tool-badge">{badge}</span>
         <span className="tool-name">{call.name}</span>
         <span className="tool-arg">{summarizeInput(call.input)}</span>
+        {/* task: pasos que dieron los subagentes (el detalle vive en Logs). */}
+        {call.name === "task" && call.subSteps ? (
+          <span className="tool-arg">· {call.subSteps} pasos</span>
+        ) : null}
         <span className="tool-toggle">{open ? "▾" : "▸"}</span>
       </button>
 
       {rich === "diff" && <DiffView output={call.output!} />}
       {rich === "terminal" && <TerminalBlock output={call.output!} />}
+      {/* task: el resumen de los subagentes va siempre visible (es el valor). */}
+      {call.name === "task" && call.done && !call.isError && call.output && (
+        <pre className="tool-summary">{call.output}</pre>
+      )}
       {/* Errores siempre visibles, aunque la tarjeta esté plegada. */}
       {call.done && call.isError && <pre className="tool-error">{call.output}</pre>}
 
@@ -54,8 +68,9 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
         <div className="tool-body">
           <div className="tool-section-label">input</div>
           <pre>{JSON.stringify(call.input, null, 2)}</pre>
-          {/* Salida cruda sólo para tools sin vista rica (la rica ya la muestra). */}
-          {call.done && !call.isError && !rich && (
+          {/* Salida cruda sólo para tools sin vista rica ni resumen propio
+              (diff/terminal y task ya muestran su salida arriba). */}
+          {call.done && !call.isError && !rich && call.name !== "task" && (
             <>
               <div className="tool-section-label">output</div>
               <pre>{call.output}</pre>
