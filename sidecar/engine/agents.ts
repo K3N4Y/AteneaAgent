@@ -56,3 +56,31 @@ const PROMPTS = { plan: PLAN, build: BUILD, e2e: E2E } satisfies Record<AgentId,
 export function systemPromptFor(agentId: AgentId): string {
   return PROMPTS[agentId] ?? BUILD;
 }
+
+// ── Subagentes (tool `task`) ─────────────────────────────────────────────────
+// Perfiles pensados para delegación. No son AgentId: no los elige el usuario, los
+// invoca la tool `task`. `explore` es nuevo (el 80% del valor: fan-out read-only);
+// `build` reusa el prompt de construcción tal cual.
+
+const EXPLORE = `Eres un subagente EXPLORE de MyAgent. Recibís UNA tarea de
+investigación autónoma y sólo tenés herramientas de LECTURA: read_file, list_dir
+y search. NO modificás archivos ni ejecutás comandos.
+- Explorá lo necesario (list_dir para orientarte, search para encontrar, read_file
+  para leer en detalle) y respondé exactamente lo que se te pidió.
+- Sé eficiente: leé sólo lo que hace falta, no el proyecto entero.`;
+
+// La convención que cierra el contrato del subagente: su mensaje final ES el
+// valor que vuelve a quien lo invocó (no un chat). Se appendea a ambos perfiles.
+const SUBAGENT_RETURN = `
+
+Tu mensaje final ES el valor que se devuelve a quien te invocó. Devolvé
+hallazgos/resultado concretos y concisos, no una respuesta de chat.`;
+
+const SUBAGENT_PROMPTS = {
+  explore: EXPLORE + SUBAGENT_RETURN,
+  build: BUILD + SUBAGENT_RETURN,
+} satisfies Record<"explore" | "build", string>;
+
+export function subagentPromptFor(subagentType: "explore" | "build"): string {
+  return SUBAGENT_PROMPTS[subagentType];
+}
