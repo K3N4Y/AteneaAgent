@@ -212,12 +212,16 @@ function dispatch(event: IncomingEvent): void {
   // Eventos de un SUBAGENTE (tool `task`): ya quedaron en el panel de Logs vía
   // logIncoming. NO los mezclamos en el transcript principal (no addToolCall ni
   // appendAssistantDelta del padre): el subagente es caja negra + resumen. Sólo
-  // bumpeamos un contador de pasos en la tarjeta del `task` en curso por cada
-  // tool-call anidada, para dar señal de progreso. El resumen llega como
-  // tool_result del propio `task` (sin parentToolId).
+  // bumpeamos el contador de pasos del subagente que lo emitió (parentToolId es su
+  // índice dentro del `task`), para dar señal de progreso POR subagente. El resumen
+  // llega como tool_result del propio `task` (sin parentToolId).
   // parentToolId sólo está en los 4 eventos de streaming; lo leemos cross-cutting.
-  if ((event as { parentToolId?: string }).parentToolId) {
-    if (event.type === "tool_call") s.bumpSubStep();
+  const parentToolId = (event as { parentToolId?: string }).parentToolId;
+  if (parentToolId !== undefined) {
+    if (event.type === "tool_call") {
+      const index = Number(parentToolId);
+      s.bumpSubStep(Number.isFinite(index) ? index : 0);
+    }
     return;
   }
   switch (event.type) {

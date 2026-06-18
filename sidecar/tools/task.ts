@@ -58,15 +58,16 @@ export const taskTool: Tool<z.infer<typeof schema>> = {
       };
     }
     const spawn = ctx.spawnSubagent;
-    // parentToolId real lo estampa el server vía scopedEmit; acá pasamos uno por
-    // task sólo para distinguirlas si hubiera varias (la UI ya las agrupa por la
-    // tool-call `task` que el loop emitió antes de invocarnos).
+    // parentToolId = índice del subagente dentro de ESTE task. El server lo estampa
+    // en cada evento anidado vía scopedEmit y la UI lo usa para contar los pasos de
+    // cada subagente POR SEPARADO. (Antes mandábamos el tipo, que no distinguía dos
+    // del mismo tipo y los sumaba en un único contador.)
     const results = await Promise.all(
-      tasks.map((t) =>
+      tasks.map((t, i) =>
         spawn({
           subagentType: t.subagent_type,
           prompt: t.description,
-          parentToolId: t.subagent_type,
+          parentToolId: String(i),
         }),
       ),
     );

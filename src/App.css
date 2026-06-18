@@ -572,6 +572,22 @@ body {
 .tool-toggle {
   color: var(--muted);
 }
+/* task: una píldora por subagente con su conteo de pasos (no la suma total). */
+.tool-substeps {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+.tool-substep {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
 .tool-body {
   border-top: 1px solid var(--border);
   padding: 8px 10px;
