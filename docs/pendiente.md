@@ -5,7 +5,7 @@
 > [arquitectura-backend.md](./arquitectura-backend.md) y
 > [arquitectura-frontend.md](./arquitectura-frontend.md).
 
-Estado: **Fases 0, 1 y 2 implementadas y verificadas** (falta solo el demo en
+Estado: **Fases 0, 1, 2 y 3 implementadas y verificadas** (falta solo el demo en
 vivo, que requiere la `OPENCODE_ZEN_API_KEY`). Ver [README.md](../README.md)
 para correr.
 
@@ -160,12 +160,53 @@ de punta a punta, aunque sea con un solo agente y una sola herramienta.
 
 ---
 
-## Fase 3 — E2E real
+## Fase 3 — E2E real ✅
 
-- [ ] Agente E2E: scaffolding de proyectos nuevos (estructura + deps).
-- [ ] Orquestación: E2E invoca internamente Plan y luego Build.
-- [ ] Capacidad de **arrancar** la app construida y mostrar su estado.
-- [ ] Manejo de proyectos multi-archivo grandes (coherencia, no romper nada).
+- [x] Agente E2E: scaffolding de proyectos nuevos (estructura + deps). Sin tool
+      nueva: el E2E ya tiene `write_file` + `run_command`; el scaffolding es
+      `run_command` con `npm create …`/`npm init`/`npm install` + `write_file`.
+      Se reforzó el system prompt de E2E para guiarlo.
+- [x] Orquestación: E2E es **Plan→Build con gate humano**, sin máquina de
+      orquestación. El primer turno propone con el prompt/tools de `plan` (sólo
+      lectura + `submit_plan`) y se detiene al emitir el plan; la UI lo muestra con
+      botón **Aprobar**. Al aprobar, la UI reenvía el `user_message` con `approve`
+      y `server.ts` corre la fase de CONSTRUCCIÓN con el prompt/tools de `e2e`
+      (write/edit/run/start_app) sobre el **mismo historial**. El ruteo por fase es
+      una línea en `server.ts` (`msg.agentId === "e2e" && !msg.approve ? "plan" :
+      msg.agentId`). ponytail: dos turnos de `runAgent` normales, cero estado nuevo.
+- [x] Capacidad de **arrancar** la app construida y mostrar su estado. Tool nueva
+      `start_app` (`tools/start-app.ts`): spawnea un proceso de **fondo** de larga
+      duración (servidor de dev) sin bloquear — `run_command` no sirve porque
+      bloquea hasta que el proceso termina/vence el timeout, y un dev server no
+      termina. Espera una cadena `ready` o un grace period, devuelve estado +
+      primeros logs, deja el proceso vivo. Mismo gate de confirmación que
+      `run_command`. El server registra el proceso (`ctx.trackProcess`) y lo mata
+      en `ws.close` para no dejar huérfanos. La UI lo muestra con `TerminalBlock`.
+- [x] Manejo de proyectos multi-archivo grandes (coherencia, no romper nada).
+      Cubierto por el modelo **hashline** existente (read-before-edit + verificación
+      por hash: si el archivo cambió, `edit_file` falla y obliga a re-leer — ese
+      es el guard de "no romper nada") + guía en el prompt (pasos pequeños,
+      build/tests tras cada set de cambios, coherencia de imports/tipos/rutas).
+      Sin máquina nueva.
+
+> Verificado: `tsc` (sidecar) + `tsc && vite build` (UI) en verde; `dist` del
+> sidecar reconstruido. Smoke determinista `smoke-tools.ts` **26/26** (suma 4
+> casos de `start_app`: corre y queda vivo + se rastrea, proceso que termina
+> solo → error, corte por cadena `ready`, sin confirm → denegado). El allowlist
+> de env de subprocesos se unificó en `tools/proc-env.ts` (lo comparten
+> `run_command` y `start_app`).
+
+### Recortes conscientes (ponytail)
+- `start_app` **no** hace streaming en vivo de logs: devuelve los primeros y deja
+  el proceso corriendo. Agregar un evento de chunks cuando haga falta ver el log
+  vivo de un server (mismo recorte que `TerminalBlock` en Fase 2).
+- E2E **espera aprobación humana** del plan: propone, se detiene y construye solo
+  al aprobar (gate). Plan y construcción quedan en **dos turnos/burbujas**
+  separados (no se mezclan). Si en el futuro se quiere un modo de máxima
+  autonomía sin gate, sería un toggle que saltee el freno (`approve` implícito).
+- `start_app` mata las apps en `ws.close`; un crash duro del sidecar
+  (`process.exit` del watchdog) podría dejar hijos. Suficiente para el demo;
+  endurecer en Fase 4 (empaque/robustez) si hace falta.
 
 ---
 
