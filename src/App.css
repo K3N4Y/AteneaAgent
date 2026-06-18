@@ -795,15 +795,19 @@ body {
   font-size: 10px;
 }
 .tree-icon {
-  flex: 0 0 auto;
-  font-size: 12px;
+  flex: 0 0 16px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
 }
 .tree-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tree-row.is-file .tree-label {
+.tree-row.is-dir .tree-label {
   color: var(--muted);
 }
 
