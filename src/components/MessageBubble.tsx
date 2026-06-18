@@ -9,8 +9,13 @@ import type { Message } from "../state/session";
 import { ToolCallCard } from "./ToolCallCard";
 import { PlanView } from "./PlanView";
 import { ThinkingBlock } from "./ThinkingBlock";
+import { useSmoothText } from "./useSmoothText";
 
 export function MessageBubble({ message, streaming }: { message: Message; streaming: boolean }) {
+  // useSmoothText incondicional (regla de hooks). En user no se usa: su texto va
+  // plano y completo por la rama de abajo; le pasamos "" para no animar nada.
+  const text = useSmoothText(message.role === "assistant" ? message.text : "");
+
   if (message.role === "user") {
     return (
       <div className="msg msg-user">
@@ -34,9 +39,9 @@ export function MessageBubble({ message, streaming }: { message: Message; stream
             hasAnswer={!!message.text}
           />
         )}
-        {message.text && (
+        {text && (
           <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-            {message.text}
+            {text}
           </Markdown>
         )}
         {message.toolCalls.map((c) => (

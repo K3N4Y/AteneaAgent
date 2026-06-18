@@ -8,9 +8,10 @@
 // no colapsamos —dejamos el bloque abierto— para no esconder lo único que hay.
 
 import { useEffect, useRef, useState } from "react";
+import { useSmoothText } from "./useSmoothText";
 
 export function ThinkingBlock({
-  text,
+  text: rawText,
   live,
   hasAnswer,
 }: {
@@ -18,6 +19,7 @@ export function ThinkingBlock({
   live: boolean;
   hasAnswer: boolean;
 }) {
+  const text = useSmoothText(rawText);
   const [open, setOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
