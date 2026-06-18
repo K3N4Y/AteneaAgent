@@ -136,6 +136,12 @@ export class OpenAICompatibleProvider implements LlmProvider {
         if (delta?.content) {
           yield { type: "text_delta", text: delta.content };
         }
+        // Razonamiento: no está en el tipo de OpenAI; los gateways lo exponen
+        // como `reasoning_content` (DeepSeek) o `reasoning` (OpenRouter).
+        const reasoning = (delta as any)?.reasoning_content ?? (delta as any)?.reasoning;
+        if (reasoning) {
+          yield { type: "thinking_delta", text: reasoning };
+        }
         if (delta?.tool_calls) {
           for (const tc of delta.tool_calls) {
             const idx = tc.index ?? 0;
