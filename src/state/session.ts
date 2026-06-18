@@ -22,6 +22,12 @@ export interface UiToolCall {
    * Ausente en sesiones viejas persistidas → se trata como "al final" (legacy).
    */
   textOffset?: number;
+  /**
+   * Sólo para la tool `task`: pasos (tool-calls) que llevaron sus subagentes.
+   * El detalle vive en Logs (el subagente es caja negra); esto es un contador de
+   * progreso en la tarjeta. Ausente en el resto de las tools.
+   */
+  subSteps?: number;
 }
 
 /**
@@ -136,6 +142,8 @@ interface SessionState {
   appendThinkingDelta(text: string): void; // razonamiento del modelo (estilo Cursor)
   addToolCall(id: string, name: string, input: unknown): void;
   resolveToolCall(id: string, output: string, isError: boolean): void;
+  /** Suma un paso al `task` en curso (cada tool-call de un subagente). */
+  bumpSubStep(): void;
   setPlan(markdown: string): void; // adjunta el plan al último mensaje del asistente
   approveLastPlan(): void; // marca como aprobado el plan más reciente
   setPendingPermission(p: PendingPermission): void;
@@ -283,6 +291,21 @@ export const useSession = create<SessionState>((set) => ({
           t.id === id ? { ...t, output, isError, done: true } : t,
         ),
       })),
+    })),
+
+  bumpSubStep: () =>
+    set((s) => ({
+      messages: updateLastAssistant(s.messages, (m) => {
+        // El `task` en curso es la última tool-call `task` sin terminar.
+        let idx = -1;
+        for (let i = m.toolCalls.length - 1; i >= 0; i--) {
+          if (m.toolCalls[i].name === "task" && !m.toolCalls[i].done) { idx = i; break; }
+        }
+        if (idx === -1) return m;
+        const copy = m.toolCalls.slice();
+        copy[idx] = { ...copy[idx], subSteps: (copy[idx].subSteps ?? 0) + 1 };
+        return { ...m, toolCalls: copy };
+      }),
     })),
 
   setPlan: (markdown) =>

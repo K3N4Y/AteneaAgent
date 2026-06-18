@@ -168,6 +168,17 @@ function scheduleReconnect(): void {
 
 function dispatch(event: IncomingEvent): void {
   const s = useSession.getState();
+  // Eventos de un SUBAGENTE (tool `task`): ya quedaron en el panel de Logs vía
+  // logIncoming. NO los mezclamos en el transcript principal (no addToolCall ni
+  // appendAssistantDelta del padre): el subagente es caja negra + resumen. Sólo
+  // bumpeamos un contador de pasos en la tarjeta del `task` en curso por cada
+  // tool-call anidada, para dar señal de progreso. El resumen llega como
+  // tool_result del propio `task` (sin parentToolId).
+  // parentToolId sólo está en los 4 eventos de streaming; lo leemos cross-cutting.
+  if ((event as { parentToolId?: string }).parentToolId) {
+    if (event.type === "tool_call") s.bumpSubStep();
+    return;
+  }
   switch (event.type) {
     case "ready":
       s.onReady(event.providerId, event.model);
