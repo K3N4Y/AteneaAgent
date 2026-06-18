@@ -53,7 +53,7 @@ export interface UiPlan {
 
 export type Message =
   | { role: "user"; text: string }
-  | { role: "assistant"; text: string; toolCalls: UiToolCall[]; plan?: UiPlan };
+  | { role: "assistant"; text: string; toolCalls: UiToolCall[]; plan?: UiPlan; thinking?: string };
 
 /** Confirmación de comando pendiente (run_command esperando al usuario). */
 export interface PendingPermission {
@@ -101,6 +101,7 @@ interface SessionState {
   // Acciones llamadas por transport/client.ts con cada evento del motor.
   startUserTurn(text: string): void; // agrega msg user + msg assistant vacío
   appendAssistantDelta(text: string): void;
+  appendThinkingDelta(text: string): void; // razonamiento del modelo (estilo Cursor)
   addToolCall(id: string, name: string, input: unknown): void;
   resolveToolCall(id: string, output: string, isError: boolean): void;
   setPlan(markdown: string): void; // adjunta el plan al último mensaje del asistente
@@ -211,6 +212,11 @@ export const useSession = create<SessionState>((set) => ({
   appendAssistantDelta: (text) =>
     set((s) => ({
       messages: updateLastAssistant(s.messages, (m) => ({ ...m, text: m.text + text })),
+    })),
+
+  appendThinkingDelta: (text) =>
+    set((s) => ({
+      messages: updateLastAssistant(s.messages, (m) => ({ ...m, thinking: (m.thinking ?? "") + text })),
     })),
 
   addToolCall: (id, name, input) =>

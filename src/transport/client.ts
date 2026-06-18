@@ -185,7 +185,7 @@ function dispatch(event: IncomingEvent): void {
       s.appendAssistantDelta(event.text);
       break;
     case "thinking_delta":
-      // En Fase 0 no mostramos el razonamiento; se ignora.
+      s.appendThinkingDelta(event.text);
       break;
     case "tool_call":
       s.addToolCall(event.id, event.name, event.input);
