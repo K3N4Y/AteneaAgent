@@ -31,6 +31,26 @@ interface Group {
   sessions: StoredSession[];
 }
 
+// Proyectos colapsados (persistido). Clave = projectPath, o "" para "Sin proyecto".
+const COLLAPSE_KEY = "myagent:historyCollapsed";
+
+function loadCollapsed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsed(set: Set<string>): void {
+  try {
+    localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set]));
+  } catch {
+    // Cuota llena o storage no disponible: el estado vive solo en memoria.
+  }
+}
+
 // Agrupa por projectPath preservando el orden por recencia (listSessions ya
 // viene ordenado desc), así el proyecto usado más recientemente queda arriba.
 function groupByProject(sessions: StoredSession[]): Group[] {
@@ -53,7 +73,17 @@ export function HistoryList() {
   const sessionId = useSession((s) => s.sessionId);
   useSession((s) => s.messages); // re-render al persistir un turno
   const [, force] = useState(0);
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
   const groups = groupByProject(listSessions());
+
+  function toggle(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      saveCollapsed(next);
+      return next;
+    });
+  }
 
   return (
     <div className="history">
@@ -61,12 +91,23 @@ export function HistoryList() {
         + Nueva sesión
       </button>
       {groups.length === 0 && <div className="tree-empty">Sin sesiones guardadas.</div>}
-      {groups.map((g) => (
-        <div key={g.path ?? ""} className="history-group">
-          <div className="history-group-label" title={g.path ?? g.label}>
-            {g.label}
-          </div>
-          {g.sessions.map((s) => (
+      {groups.map((g) => {
+        const key = g.path ?? "";
+        const isCollapsed = collapsed.has(key);
+        return (
+          <div key={key} className="history-group">
+            <button
+              className="history-group-label"
+              title={g.path ?? g.label}
+              aria-expanded={!isCollapsed}
+              onClick={() => toggle(key)}
+            >
+              <span className={`history-caret ${isCollapsed ? "collapsed" : ""}`}>▾</span>
+              <span className="history-group-name">{g.label}</span>
+              <span className="history-group-count">{g.sessions.length}</span>
+            </button>
+            {!isCollapsed &&
+              g.sessions.map((s) => (
             <div key={s.id} className={`history-item ${s.id === sessionId ? "active" : ""}`}>
               <button className="history-open" onClick={() => resumeSession(s)} title={s.title}>
                 <span className="history-title">{s.title}</span>
@@ -84,9 +125,10 @@ export function HistoryList() {
                 ×
               </button>
             </div>
-          ))}
-        </div>
-      ))}
+              ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
