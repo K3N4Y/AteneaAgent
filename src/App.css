@@ -231,7 +231,8 @@ body {
   position: relative;
 }
 .agent-glyph {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
   line-height: 1;
 }
 .agent-pill .composer-pill-label {
@@ -251,7 +252,7 @@ body {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 0;
-  min-width: 230px;
+  min-width: 180px;
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -264,9 +265,9 @@ body {
 }
 .agent-menu-item {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
   background: transparent;
   border: 0;
   border-radius: 7px;
@@ -278,23 +279,32 @@ body {
 .agent-menu-item.active {
   background: var(--bg-3);
 }
-.agent-menu-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
+.agent-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--muted);
 }
-.agent-menu-item.agent-plan .agent-menu-label {
+.agent-menu-item.agent-plan .agent-menu-icon {
   color: #c9a7ff;
 }
-.agent-menu-item.agent-build .agent-menu-label {
+.agent-menu-item.agent-build .agent-menu-icon {
   color: var(--accent);
 }
-.agent-menu-item.agent-e2e .agent-menu-label {
+.agent-menu-item.agent-e2e .agent-menu-icon {
   color: var(--ok);
 }
-.agent-menu-hint {
-  font-size: 11.5px;
-  color: var(--muted);
+.agent-menu-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.agent-menu-check {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text);
 }
 
 /* ── Plan view (agente Plan) ─────────────────────────────── */

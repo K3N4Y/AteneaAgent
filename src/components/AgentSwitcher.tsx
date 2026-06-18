@@ -4,14 +4,15 @@
 // de herramientas del motor al seleccionar.
 
 import { useEffect, useRef, useState } from "react";
+import type { FC } from "react";
 import { useSession } from "../state/session";
 import type { AgentId } from "../transport/protocol";
-import { ChevronIcon } from "./icons";
+import { CheckIcon, ChevronIcon, LayersIcon, PlanIcon, TerminalIcon } from "./icons";
 
-const AGENTS: { id: AgentId; label: string; hint: string }[] = [
-  { id: "plan", label: "Plan", hint: "sólo lee y propone un plan" },
-  { id: "build", label: "Build", hint: "lee, edita y corre comandos" },
-  { id: "e2e", label: "E2E", hint: "construye el proyecto entero" },
+const AGENTS: { id: AgentId; label: string; hint: string; Icon: FC }[] = [
+  { id: "plan", label: "Plan", hint: "sólo lee y propone un plan", Icon: PlanIcon },
+  { id: "build", label: "Build", hint: "lee, edita y corre comandos", Icon: TerminalIcon },
+  { id: "e2e", label: "E2E", hint: "construye el proyecto entero", Icon: LayersIcon },
 ];
 
 export function AgentSwitcher() {
@@ -50,7 +51,9 @@ export function AgentSwitcher() {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="agent-glyph">∞</span>
+        <span className="agent-glyph">
+          <active.Icon />
+        </span>
         <span className="composer-pill-label">{active.label}</span>
         <ChevronIcon />
       </button>
@@ -62,14 +65,22 @@ export function AgentSwitcher() {
               type="button"
               role="menuitemradio"
               aria-checked={a.id === agentId}
+              title={a.hint}
               className={`agent-menu-item agent-${a.id} ${a.id === agentId ? "active" : ""}`}
               onClick={() => {
                 setAgent(a.id);
                 setOpen(false);
               }}
             >
+              <span className="agent-menu-icon">
+                <a.Icon />
+              </span>
               <span className="agent-menu-label">{a.label}</span>
-              <span className="agent-menu-hint">{a.hint}</span>
+              {a.id === agentId && (
+                <span className="agent-menu-check">
+                  <CheckIcon />
+                </span>
+              )}
             </button>
           ))}
         </div>
