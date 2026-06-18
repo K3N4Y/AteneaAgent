@@ -3,6 +3,7 @@
 
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 
 import type { Message } from "../state/session";
 import { ToolCallCard } from "./ToolCallCard";
@@ -24,7 +25,9 @@ export function MessageBubble({ message, streaming }: { message: Message; stream
       <div className="msg-role">agente</div>
       <div className="msg-text markdown">
         {message.text && (
-          <Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
+          <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+            {message.text}
+          </Markdown>
         )}
         {message.toolCalls.map((c) => (
           <ToolCallCard key={c.id} call={c} />
