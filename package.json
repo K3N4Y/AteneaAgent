@@ -17,7 +17,8 @@
     "app:x11": "GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev",
     "sidecar:install": "pnpm --dir sidecar install",
     "sidecar:build": "pnpm --dir sidecar build",
-    "sidecar:dev": "pnpm --dir sidecar dev"
+    "sidecar:dev": "pnpm --dir sidecar dev",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

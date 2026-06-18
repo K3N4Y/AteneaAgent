@@ -209,18 +209,20 @@ function scheduleReconnect(): void {
 
 function dispatch(event: IncomingEvent): void {
   const s = useSession.getState();
-  // Eventos de un SUBAGENTE (tool `task`): ya quedaron en el panel de Logs vía
-  // logIncoming. NO los mezclamos en el transcript principal (no addToolCall ni
-  // appendAssistantDelta del padre): el subagente es caja negra + resumen. Sólo
-  // bumpeamos el contador de pasos del subagente que lo emitió (parentToolId es su
-  // índice dentro del `task`), para dar señal de progreso POR subagente. El resumen
-  // llega como tool_result del propio `task` (sin parentToolId).
-  // parentToolId sólo está en los 4 eventos de streaming; lo leemos cross-cutting.
+  // Eventos de un SUBAGENTE (tool `task`): además de quedar en Logs (logIncoming),
+  // los anidamos bajo la tarjeta del `task` para mostrar su sub-transcript EN VIVO
+  // e indentado, como en Claude Code. `parentToolId` es el índice del subagente
+  // dentro del `task`. Sólo enrutamos sus tool-calls (el texto/razonamiento del
+  // subagente vive en Logs y su resumen final llega como tool_result del `task`,
+  // sin parentToolId). parentToolId sólo viaja en los 4 eventos de streaming.
   const parentToolId = (event as { parentToolId?: string }).parentToolId;
   if (parentToolId !== undefined) {
+    const raw = Number(parentToolId);
+    const index = Number.isInteger(raw) && raw >= 0 ? raw : 0;
     if (event.type === "tool_call") {
-      const index = Number(parentToolId);
-      s.bumpSubStep(Number.isInteger(index) && index >= 0 ? index : 0);
+      s.addSubToolCall(index, event.id, event.name, event.input);
+    } else if (event.type === "tool_result") {
+      s.resolveSubToolCall(index, event.id, event.output, event.isError);
     }
     return;
   }
