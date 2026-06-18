@@ -17,6 +17,9 @@ import { searchTool } from "./tools/search";
 import { runCommandTool } from "./tools/run-command";
 import { startAppTool } from "./tools/start-app";
 import { submitPlanTool } from "./tools/submit-plan";
+import { taskTool } from "./tools/task";
+import { subagentToolsFor } from "./tools/registry";
+import { MAX_SUBAGENTS_PER_CALL } from "./config/limits";
 import type { ToolContext } from "./tools/types";
 import type { ChildProcess } from "node:child_process";
 
@@ -166,6 +169,86 @@ async function main() {
   // 16. sin confirm ⇒ denegado (mismo gate que run_command).
   const sa4 = await startAppTool.run({ command: "sleep 5" }, ctx);
   check("start_app sin confirm asume denegado", sa4.isError, sa4.output);
+
+  // ── Fase 4: task (subagentes) ──────────────────────────────────────────────
+  // Deterministas, SIN LLM: stubeamos ctx.spawnSubagent (el orquestador real vive
+  // en server.ts y se ejercita en el demo en vivo).
+
+  // 17. sin spawnSubagent ⇒ error y NO corre nada.
+  const t0 = await taskTool.run(
+    { tasks: [{ subagent_type: "explore", description: "investigá X" }] },
+    ctx,
+  );
+  check("task sin spawnSubagent asume sin orquestador", t0.isError && t0.output.includes("orquestador"), t0.output);
+
+  // 18. un task ⇒ llama a spawnSubagent una vez con el prompt correcto y devuelve su text.
+  const calls: { subagentType: string; prompt: string }[] = [];
+  const stubOk: ToolContext = {
+    ...ctx,
+    spawnSubagent: async ({ subagentType, prompt }) => {
+      calls.push({ subagentType, prompt });
+      return { text: `hallazgo de ${subagentType}`, isError: false };
+    },
+  };
+  const t1 = await taskTool.run(
+    { tasks: [{ subagent_type: "explore", description: "buscá la config" }] },
+    stubOk,
+  );
+  check("task llama spawnSubagent una vez", calls.length === 1, String(calls.length));
+  check("task pasa la description como prompt", calls[0]?.prompt === "buscá la config", calls[0]?.prompt);
+  check("task devuelve el text del subagente", !t1.isError && t1.output.includes("hallazgo de explore"), t1.output);
+
+  // 19. varios tasks ⇒ se llaman todos (paralelo), output combina en orden;
+  //     isError sólo si fallan TODOS.
+  const t2 = await taskTool.run(
+    {
+      tasks: [
+        { subagent_type: "explore", description: "uno" },
+        { subagent_type: "build", description: "dos" },
+      ],
+    },
+    {
+      ...ctx,
+      spawnSubagent: async ({ subagentType }) => ({ text: `R-${subagentType}`, isError: false }),
+    },
+  );
+  check(
+    "task combina los N resúmenes en orden",
+    !t2.isError &&
+      t2.output.indexOf("R-explore") >= 0 &&
+      t2.output.indexOf("R-explore") < t2.output.indexOf("R-build") &&
+      t2.output.includes("### Subagente 1") &&
+      t2.output.includes("### Subagente 2"),
+    t2.output,
+  );
+  // isError sólo si TODOS fallan: con uno ok ⇒ no es error; con todos fallidos ⇒ sí.
+  const t2b = await taskTool.run(
+    { tasks: [{ subagent_type: "explore", description: "a" }, { subagent_type: "explore", description: "b" }] },
+    { ...ctx, spawnSubagent: async ({ prompt }) => ({ text: "boom", isError: prompt === "a" }) },
+  );
+  check("task no es error si alguno tiene éxito", !t2b.isError, t2b.output);
+  const t2c = await taskTool.run(
+    { tasks: [{ subagent_type: "explore", description: "a" }, { subagent_type: "explore", description: "b" }] },
+    { ...ctx, spawnSubagent: async () => ({ text: "boom", isError: true }) },
+  );
+  check("task es error si TODOS fallan", t2c.isError, t2c.output);
+
+  // 20. registro: ningún subagente recibe `task` (garantía de profundidad 1).
+  check(
+    "subagentToolsFor(explore) no incluye task",
+    !subagentToolsFor("explore").some((t) => t.name === "task"),
+  );
+  check(
+    "subagentToolsFor(build) no incluye task",
+    !subagentToolsFor("build").some((t) => t.name === "task"),
+  );
+
+  // 21. fan-out cap: un array más largo que MAX_SUBAGENTS_PER_CALL lo rechaza Zod.
+  const tooMany = Array.from({ length: MAX_SUBAGENTS_PER_CALL + 1 }, (_, i) => ({
+    subagent_type: "explore" as const,
+    description: `t${i}`,
+  }));
+  check("task rechaza más de MAX_SUBAGENTS_PER_CALL (schema)", !taskTool.schema.safeParse({ tasks: tooMany }).success);
 
   rmSync(root, { recursive: true, force: true });
   console.log(failures === 0 ? "\nTODO OK ✓" : `\n${failures} FALLO(S) ✗`);
