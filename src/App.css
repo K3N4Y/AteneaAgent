@@ -572,21 +572,50 @@ body {
 .tool-toggle {
   color: var(--muted);
 }
-/* task: una píldora por subagente con su conteo de pasos (no la suma total). */
-.tool-substeps {
+/* task: sub-transcript anidado de los subagentes, indentado bajo la tarjeta
+   con una guía a la izquierda (estilo árbol de Claude Code). */
+.subagents {
+  border-top: 1px solid var(--border);
+  padding: 6px 10px 8px;
   display: flex;
-  gap: 4px;
-  flex: none;
+  flex-direction: column;
+  gap: 6px;
 }
-.tool-substep {
-  font-family: ui-monospace, monospace;
-  font-size: 11px;
+.subagent {
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+}
+.subagent-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 2px 0;
+}
+.subagent-badge {
+  width: 14px;
+  text-align: center;
   color: var(--muted);
+}
+.subagent-name {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+}
+.subagent-count {
+  color: var(--muted);
+  font-size: 11px;
+}
+/* Las tool-cards anidadas son más chicas y sin margen de más. */
+.subagent-body {
+  margin-top: 2px;
+}
+.subagent-body .tool-card {
+  margin: 4px 0;
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 6px;
-  white-space: nowrap;
+}
+.subagent-body .tool-head {
+  font-size: 12px;
+  padding: 5px 8px;
 }
 .tool-body {
   border-top: 1px solid var(--border);

@@ -23,12 +23,25 @@ export interface UiToolCall {
    */
   textOffset?: number;
   /**
-   * Sólo para la tool `task`: pasos (tool-calls) de CADA subagente, indexados por
-   * su posición en `tasks` — `subSteps[i]` = cuántas tools lleva el subagente i.
-   * El detalle vive en Logs (el subagente es caja negra); esto es un contador de
-   * progreso POR subagente en la tarjeta. Ausente en el resto de las tools.
+   * Sólo para la tool `task`: el sub-transcript EN VIVO de cada subagente,
+   * indexado por su posición en `tasks`. En vez de tratar al subagente como caja
+   * negra (sólo un contador), guardamos sus propias tool-calls anidadas para
+   * renderizarlas indentadas bajo la tarjeta del `task` — como en Claude Code.
+   * Los eventos anidados llegan con `parentToolId` = índice del subagente.
+   * Ausente en el resto de las tools (y en sesiones viejas persistidas).
    */
-  subSteps?: number[];
+  subagents?: SubagentRun[];
+}
+
+/**
+ * Corrida de un subagente lanzado por la tool `task`: su tipo (`explore`/`build`,
+ * para etiquetar) y las tool-calls que fue haciendo. El render las muestra
+ * indentadas y en vivo bajo la tarjeta del `task`. El resumen final (texto que
+ * devolvió) sigue llegando como el `output` del propio `task`.
+ */
+export interface SubagentRun {
+  type?: string;
+  toolCalls: UiToolCall[];
 }
 
 /**
@@ -96,12 +109,12 @@ export function thinkingSegments(
   return thinking;
 }
 
-/** Contador inicial de pasos por subagente de un `task`: un 0 por cada sub-tarea,
- * para que la tarjeta muestre todos los subagentes desde el arranque (en 0). */
-function subStepsInit(input: unknown): number[] | undefined {
-  const tasks = (input as { tasks?: unknown[] })?.tasks;
+/** Subagentes iniciales de un `task`: uno por sub-tarea (con su tipo, sin tools
+ * todavía), para que la tarjeta liste todos los subagentes desde el arranque. */
+function subagentsInit(input: unknown): SubagentRun[] | undefined {
+  const tasks = (input as { tasks?: { subagent_type?: string }[] })?.tasks;
   return Array.isArray(tasks)
-    ? new Array<number>(tasks.length).fill(0)
+    ? tasks.map((t) => ({ type: t.subagent_type, toolCalls: [] }))
     : undefined;
 }
 
@@ -154,8 +167,15 @@ interface SessionState {
   appendThinkingDelta(text: string): void; // razonamiento del modelo (estilo Cursor)
   addToolCall(id: string, name: string, input: unknown): void;
   resolveToolCall(id: string, output: string, isError: boolean): void;
-  /** Suma un paso al subagente `index` del `task` en curso (cada tool-call anidada). */
-  bumpSubStep(index: number): void;
+  /** Tool-call anidada de un subagente del `task` en curso (índice = posición en
+   * `tasks`). Alimenta el sub-transcript en vivo de la tarjeta. */
+  addSubToolCall(index: number, id: string, name: string, input: unknown): void;
+  resolveSubToolCall(
+    index: number,
+    id: string,
+    output: string,
+    isError: boolean,
+  ): void;
   setPlan(markdown: string): void; // adjunta el plan al último mensaje del asistente
   approveLastPlan(): void; // marca como aprobado el plan más reciente
   setPendingPermission(p: PendingPermission): void;
@@ -183,6 +203,34 @@ function lastAssistantIndex(messages: Message[]): number {
     if (messages[i].role === "assistant") return i;
   }
   return -1;
+}
+
+/**
+ * Aplica `fn` al subagente `index` del `task` EN CURSO (la última tool-call
+ * `task` sin terminar) de forma inmutable. Si no hay un `task` activo, no toca
+ * nada. Crece el array de subagentes si hiciera falta (defensivo ante eventos
+ * que lleguen antes del init). Centraliza la lógica que comparten las acciones
+ * `addSubToolCall`/`resolveSubToolCall`.
+ */
+function updateActiveSubagent(
+  m: Extract<Message, { role: "assistant" }>,
+  index: number,
+  fn: (run: SubagentRun) => SubagentRun,
+): Extract<Message, { role: "assistant" }> {
+  let idx = -1;
+  for (let i = m.toolCalls.length - 1; i >= 0; i--) {
+    if (m.toolCalls[i].name === "task" && !m.toolCalls[i].done) {
+      idx = i;
+      break;
+    }
+  }
+  if (idx === -1) return m;
+  const calls = m.toolCalls.slice();
+  const subagents = (calls[idx].subagents ?? []).slice();
+  while (subagents.length <= index) subagents.push({ toolCalls: [] });
+  subagents[index] = fn(subagents[index]);
+  calls[idx] = { ...calls[idx], subagents };
+  return { ...m, toolCalls: calls };
 }
 
 export const useSession = create<SessionState>((set) => ({
@@ -306,7 +354,7 @@ export const useSession = create<SessionState>((set) => ({
       messages: updateLastAssistant(s.messages, (m) => ({
         ...m,
         // textOffset ancla la tarjeta al punto actual del texto (orden cronológico).
-        // task: arranca con un contador en 0 por cada subagente (ver subSteps).
+        // task: arranca con un subagente vacío por sub-tarea (ver subagents).
         toolCalls: [
           ...m.toolCalls,
           {
@@ -315,7 +363,7 @@ export const useSession = create<SessionState>((set) => ({
             input,
             done: false,
             textOffset: m.text.length,
-            ...(name === "task" ? { subSteps: subStepsInit(input) } : {}),
+            ...(name === "task" ? { subagents: subagentsInit(input) } : {}),
           },
         ],
       })),
@@ -331,26 +379,26 @@ export const useSession = create<SessionState>((set) => ({
       })),
     })),
 
-  bumpSubStep: (index) =>
+  addSubToolCall: (index, id, name, input) =>
     set((s) => ({
-      messages: updateLastAssistant(s.messages, (m) => {
-        // El `task` en curso es la última tool-call `task` sin terminar.
-        let idx = -1;
-        for (let i = m.toolCalls.length - 1; i >= 0; i--) {
-          if (m.toolCalls[i].name === "task" && !m.toolCalls[i].done) {
-            idx = i;
-            break;
-          }
-        }
-        if (idx === -1) return m;
-        const copy = m.toolCalls.slice();
-        // Contador POR subagente: array indexado por su posición en `tasks`.
-        const steps = (copy[idx].subSteps ?? []).slice();
-        while (steps.length <= index) steps.push(0);
-        steps[index] += 1;
-        copy[idx] = { ...copy[idx], subSteps: steps };
-        return { ...m, toolCalls: copy };
-      }),
+      messages: updateLastAssistant(s.messages, (m) =>
+        updateActiveSubagent(m, index, (run) => ({
+          ...run,
+          toolCalls: [...run.toolCalls, { id, name, input, done: false }],
+        })),
+      ),
+    })),
+
+  resolveSubToolCall: (index, id, output, isError) =>
+    set((s) => ({
+      messages: updateLastAssistant(s.messages, (m) =>
+        updateActiveSubagent(m, index, (run) => ({
+          ...run,
+          toolCalls: run.toolCalls.map((t) =>
+            t.id === id ? { ...t, output, isError, done: true } : t,
+          ),
+        })),
+      ),
     })),
 
   setPlan: (markdown) =>

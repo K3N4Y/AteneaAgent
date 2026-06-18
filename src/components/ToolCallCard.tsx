@@ -10,12 +10,6 @@ import { TerminalBlock } from "./TerminalBlock";
 const DIFF_TOOLS = new Set(["edit_file", "write_file"]);
 const TERMINAL_TOOLS = new Set(["run_command", "start_app"]);
 
-/** Tipo del subagente `i` de un `task`, leído del input (para etiquetar su conteo). */
-function subagentType(input: unknown, i: number): string {
-  const tasks = (input as { tasks?: { subagent_type?: string }[] })?.tasks;
-  return tasks?.[i]?.subagent_type ?? "?";
-}
-
 function summarizeInput(input: unknown): string {
   if (input && typeof input === "object") {
     const obj = input as Record<string, unknown>;
@@ -55,22 +49,42 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
         <span className="tool-badge">{badge}</span>
         <span className="tool-name">{call.name}</span>
         <span className="tool-arg">{summarizeInput(call.input)}</span>
-        {/* task: pasos que dio CADA subagente por separado (detalle en Logs). */}
-        {call.name === "task" && call.subSteps && call.subSteps.length > 0 ? (
-          <span className="tool-substeps">
-            {call.subSteps.map((n, i) => (
-              <span
-                key={i}
-                className="tool-substep"
-                title={`Subagente ${i + 1} (${subagentType(call.input, i)}): ${n} paso${n === 1 ? "" : "s"}`}
-              >
-                {i + 1}·{subagentType(call.input, i)} {n}
-              </span>
-            ))}
-          </span>
-        ) : null}
         <span className="tool-toggle">{open ? "▾" : "▸"}</span>
       </button>
+
+      {/* task: sub-transcript EN VIVO de cada subagente, indentado bajo la tarjeta
+          (como en Claude Code). Sus tool-calls anidadas reutilizan esta misma
+          tarjeta (profundidad 1: un subagente nunca recibe la tool `task`). */}
+      {call.name === "task" && call.subagents && call.subagents.length > 0 && (
+        <div className="subagents">
+          {call.subagents.map((run, i) => {
+            const n = run.toolCalls.length;
+            // En curso: mostramos SÓLO la última tool (la que está usando ahora).
+            // Terminado: nada de tools, sólo el conteo en la cabecera.
+            const last = !call.done && n > 0 ? run.toolCalls[n - 1] : undefined;
+            return (
+              <div key={i} className="subagent">
+                <div className="subagent-head">
+                  <span className="subagent-badge">
+                    {call.done ? "✓" : "⏳"}
+                  </span>
+                  <span className="subagent-name">
+                    {run.type ?? "subagente"}
+                  </span>
+                  <span className="subagent-count">
+                    {n} tool{n === 1 ? "" : "s"}
+                  </span>
+                </div>
+                {last && (
+                  <div className="subagent-body">
+                    <ToolCallCard key={last.id} call={last} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {rich === "diff" && <DiffView output={call.output!} />}
       {rich === "terminal" && <TerminalBlock output={call.output!} />}

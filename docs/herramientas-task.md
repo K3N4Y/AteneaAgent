@@ -205,21 +205,26 @@ otro (no se dejan huérfanos).
 
 ## Surfacing en la UI
 
-Decisión v1 (ponytail): **headless + resumen**, con observabilidad por el panel de
-Logs y un contador de progreso en la tarjeta.
+**Sub-transcript anidado y en vivo** (estilo Claude Code): cada subagente se
+muestra indentado bajo la tarjeta del `task`, con sus tool-calls apareciendo a
+medida que las hace. Logs sigue registrando todo para diagnóstico.
 
-- El subagente corre con un `emit` "marcado" que estampa `parentToolId` en cada
-  evento. El cliente (`transport/client.ts → dispatch`) **enruta por ese campo**:
-  - eventos **con** `parentToolId` → sólo al **panel de Logs** (que ya registra
-    todo) + opcional un contador "N pasos" en la `ToolCallCard` del `task`. **No**
-    se mezclan en el transcript principal (no llaman a `addToolCall`/
-    `appendAssistantDelta` del mensaje del padre).
+- El subagente corre con un `emit` "marcado" que estampa `parentToolId` (= su
+  índice dentro del `task`) en cada evento. El cliente (`transport/client.ts →
+  dispatch`) **enruta por ese campo**:
+  - eventos **con** `parentToolId` → al **panel de Logs** (que ya registra todo)
+    **y** al sub-transcript del subagente: `tool_call`/`tool_result` se anidan en
+    `UiToolCall.subagents[index].toolCalls` vía `addSubToolCall`/
+    `resolveSubToolCall`. **No** tocan el transcript principal del padre. El
+    `assistant_delta`/`thinking_delta` del subagente quedan sólo en Logs (su texto
+    final ya vuelve como el resumen del `task`).
   - eventos **sin** `parentToolId` → como hoy.
-- La `ToolCallCard` del `task` muestra: tipo de subagente, la `description`, y al
-  final el **resumen** devuelto (el `tool_result.output`).
-- **Anidado completo** (sub-transcript plegable e indentado por subagente) es una
-  mejora posterior; el campo `parentToolId` ya deja el protocolo listo para
-  hacerlo sin romper nada.
+- La `ToolCallCard` del `task` muestra: el fan-out (cuántos subagentes y de qué
+  tipo) en la cabecera, un bloque indentado por subagente con su badge + conteo de
+  pasos + sus tool-cards anidadas (reusa la propia `ToolCallCard`, profundidad 1),
+  y al final el **resumen** devuelto (el `tool_result.output`).
+- El sub-transcript se persiste con la sesión (es parte del `UiToolCall`), así que
+  al retomar una sesión guardada se vuelve a ver anidado.
 
 ## Cambios de protocolo (no rompen)
 
@@ -279,8 +284,12 @@ en vivo** con `OPENCODE_ZEN_API_KEY`, igual que el resto del proyecto.
 - [ ] `sidecar/config/limits.ts` — `MAX_SUBAGENTS_PER_CALL`.
 - [ ] `sidecar/engine/events.ts` + `src/transport/protocol.ts` — campo
       `parentToolId?` (sincronizado).
-- [ ] `src/transport/client.ts` — `dispatch` enruta eventos con `parentToolId` a
-      Logs (+ contador) en vez del transcript.
-- [ ] `src/components/ToolCallCard.tsx` — render del resumen / contador del `task`.
+- [ ] `src/transport/client.ts` — `dispatch` enruta los `tool_call`/`tool_result`
+      con `parentToolId` al sub-transcript del subagente (`addSubToolCall`/
+      `resolveSubToolCall`) además de Logs.
+- [ ] `src/state/session.ts` — `UiToolCall.subagents` + acciones que anidan las
+      tool-calls del subagente.
+- [ ] `src/components/ToolCallCard.tsx` — render del sub-transcript anidado y del
+      resumen del `task`.
 - [ ] `sidecar/smoke-tools.ts` — los 5 casos de arriba.
 - [ ] **Rebuild del sidecar** (`dist/`) — la cáscara Rust corre `dist/server.js`.
