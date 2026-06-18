@@ -13,10 +13,11 @@ import { SessionStore } from "./session/store";
 import { SnapshotStore } from "./edit/hashline/snapshot-store";
 import { readdirWithinProject } from "./tools/fs-safe";
 import { MAX_LIST_ENTRIES } from "./config/limits";
-import { toolsForAgent } from "./tools/registry";
-import { systemPromptFor } from "./engine/agents";
+import { toolsForAgent, subagentToolsFor } from "./tools/registry";
+import { systemPromptFor, subagentPromptFor } from "./engine/agents";
 import { runAgent } from "./engine/loop";
 import { killProcessTree } from "./tools/start-app";
+import type { LlmMessage } from "./providers/types";
 import type { DirEntry, EngineEvent, IncomingMessage } from "./engine/events";
 
 // Ruido que el árbol de archivos oculta (el agente sí lo ve vía list_dir).
@@ -33,6 +34,25 @@ async function listDirForTree(projectRoot: string, path: string): Promise<DirEnt
     .map((e) => ({ name: e.name, isDir: e.isDirectory() }))
     .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
     .slice(0, MAX_LIST_ENTRIES);
+}
+
+/**
+ * Resumen de un subagente: el texto del ÚLTIMO mensaje assistant que `runAgent`
+ * dejó en su historial. Mismo invariante que usa la UI al retomar sesiones
+ * (toLlmHistory): el historial ya quedó completo, no hace falta interceptar el
+ * stream.
+ */
+function finalAssistantText(messages: LlmMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "assistant") continue;
+    const text = m.content
+      .filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .map((p) => p.text)
+      .join("");
+    if (text.trim()) return text;
+  }
+  return "(el subagente no devolvió texto)";
 }
 
 const PORT = Number(process.env.MYAGENT_SIDECAR_PORT) || 8137;
@@ -201,6 +221,15 @@ wss.on("connection", (ws: WebSocket) => {
     running = true;
     controller = new AbortController();
     try {
+      // Lifteamos confirm y trackProcess a locals: el ctx del subagente los
+      // reusa tal cual (mismo gate de permisos, misma limpieza de procesos).
+      const confirm = (req: { command: string; cwd?: string }) =>
+        new Promise<boolean>((resolve) => {
+          const id = randomUUID();
+          pendingPermissions.set(id, resolve);
+          emit({ type: "permission_request", id, command: req.command, cwd: req.cwd });
+        });
+      const trackProcess = (child: ChildProcess) => { apps.push(child); allApps.add(child); };
       const base = {
         providerId: activeProviderId,
         model: activeModel,
@@ -210,17 +239,50 @@ wss.on("connection", (ws: WebSocket) => {
           snapshots: session.snapshots,
           // run_command/start_app piden confirmación: emitimos un
           // permission_request y esperamos el permission_response de la UI.
-          confirm: (req) =>
-            new Promise<boolean>((resolve) => {
-              const id = randomUUID();
-              pendingPermissions.set(id, resolve);
-              emit({ type: "permission_request", id, command: req.command, cwd: req.cwd });
-            }),
+          confirm,
           // submit_plan (agente Plan) presenta el plan como evento `plan`.
           onPlan: (markdown) => emit({ type: "plan", markdown }),
           // start_app registra su proceso para matarlo al cerrar la sesión
           // (y a nivel global, para que SIGTERM de la cáscara también lo limpie).
-          trackProcess: (child) => { apps.push(child); allApps.add(child); },
+          trackProcess,
+          // task (subagentes): otra llamada a runAgent con contexto aislado. Acá
+          // se cierra sobre provider/model/emit/signal (que la tool no ve). El
+          // ctx del hijo NO trae spawnSubagent ni onPlan → profundidad 1 y sin
+          // planes anidados. Reusa confirm/trackProcess del padre.
+          spawnSubagent: async ({ subagentType, prompt, parentToolId }) => {
+            const subMessages: LlmMessage[] = [
+              { role: "user", content: [{ type: "text", text: prompt }] },
+            ];
+            // emit "marcado": estampa parentToolId en los eventos de streaming
+            // para que la UI los trate como anidados (los manda a Logs, no al
+            // transcript del padre). Sólo esos 4 tipos llevan el campo; el resto
+            // (done/error/etc.) pasa tal cual. De paso detectamos errores.
+            let failed = false;
+            const STAMPED = new Set(["assistant_delta", "thinking_delta", "tool_call", "tool_result"]);
+            const scopedEmit = (ev: EngineEvent) => {
+              if (ev.type === "error") failed = true;
+              emit(STAMPED.has(ev.type) ? ({ ...ev, parentToolId } as EngineEvent) : ev);
+            };
+            await runAgent(
+              {
+                providerId: activeProviderId,
+                model: activeModel,
+                system: subagentPromptFor(subagentType),
+                messages: subMessages,
+                tools: subagentToolsFor(subagentType), // nunca incluye `task`
+                ctx: {
+                  projectRoot: session.projectRoot,
+                  snapshots: new SnapshotStore(), // aislado del padre
+                  confirm, // se reusa el del padre (mismo gate de permisos)
+                  trackProcess, // start_app del subagente igual se limpia
+                  // sin onPlan, sin spawnSubagent → profundidad 1
+                },
+                signal: controller!.signal, // abort del padre corta al hijo
+              },
+              scopedEmit,
+            );
+            return { text: finalAssistantText(subMessages), isError: failed };
+          },
         },
         signal: controller.signal,
       } satisfies Omit<Parameters<typeof runAgent>[0], "system" | "tools">;
