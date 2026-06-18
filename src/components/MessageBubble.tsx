@@ -8,6 +8,7 @@ import rehypeHighlight from "rehype-highlight";
 import type { Message } from "../state/session";
 import { ToolCallCard } from "./ToolCallCard";
 import { PlanView } from "./PlanView";
+import { ThinkingBlock } from "./ThinkingBlock";
 
 export function MessageBubble({ message, streaming }: { message: Message; streaming: boolean }) {
   if (message.role === "user") {
@@ -24,6 +25,15 @@ export function MessageBubble({ message, streaming }: { message: Message; stream
     <div className="msg msg-assistant">
       <div className="msg-role">agente</div>
       <div className="msg-text markdown">
+        {/* ponytail: live = sigue pensando si streamea y aún no hay respuesta.
+            hasAnswer evita esconder la respuesta cuando vino por reasoning. */}
+        {message.thinking && (
+          <ThinkingBlock
+            text={message.thinking}
+            live={streaming && !message.text}
+            hasAnswer={!!message.text}
+          />
+        )}
         {message.text && (
           <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
             {message.text}

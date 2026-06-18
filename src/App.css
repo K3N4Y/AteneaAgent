@@ -584,6 +584,58 @@ body {
   word-break: break-word;
 }
 
+/* ── Razonamiento (estilo Cursor) ───────────────────────── */
+.think-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+  margin: 8px 0;
+  overflow: hidden;
+}
+.think-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+.think-badge {
+  width: 16px;
+  text-align: center;
+}
+.think-name {
+  flex: 1;
+  color: var(--muted);
+  font-style: italic;
+}
+.think-body {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Peek: sólo las últimas líneas, con fade arriba (anclado al fondo). */
+.think-peek {
+  max-height: 5.5em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 1.5em);
+  mask-image: linear-gradient(to bottom, transparent, #000 1.5em);
+}
+/* Expandido: razonamiento completo, scrolleable si es largo. */
+.think-full {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
 /* Error de tool: visible aunque la tarjeta esté plegada. */
 .tool-error {
   margin: 0;
