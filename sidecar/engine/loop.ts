@@ -92,7 +92,13 @@ export async function runAgent(opts: RunOptions, emit: EmitFn): Promise<void> {
     for (const call of calls) {
       emit({ type: "tool_call", id: call.id, name: call.name, input: call.input });
       const { output, isError } = await runTool(opts.tools, call, opts.ctx);
-      emit({ type: "tool_result", id: call.id, name: call.name, output, isError });
+      // ponytail: read_file vuelca el archivo entero; el LLM lo necesita pero el
+      // frontend sólo muestra qué se leyó. Recortamos sólo el evento de UI.
+      const uiOutput =
+        call.name === "read_file" && !isError
+          ? `Leído ${(call.input as { path?: string })?.path ?? ""}`.trim()
+          : output;
+      emit({ type: "tool_result", id: call.id, name: call.name, output: uiOutput, isError });
       resultParts.push({ type: "tool_result", toolUseId: call.id, output, isError });
     }
     messages.push({ role: "user", content: resultParts });
