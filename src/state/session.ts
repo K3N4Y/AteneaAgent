@@ -4,6 +4,9 @@
 
 import { create } from "zustand";
 import type { AgentId } from "../transport/protocol";
+import type { StoredSession } from "./history";
+
+const PROJECT_KEY = "myagent:projectPath";
 
 export interface UiToolCall {
   id: string;
@@ -67,12 +70,28 @@ interface SessionState {
   providerId?: string;
   model?: string;
   logs: LogEntry[];
+  /** Carpeta del proyecto activo (la elige ProjectPicker; default = cwd del sidecar). */
+  projectPath?: string;
+  /** Id de la sesión actual (para persistir/retomar). Se crea al primer turno. */
+  sessionId?: string;
+  /** Texto a insertar en el composer (lo dispara un clic en el árbol). */
+  pendingInsert?: string;
   /** Comando esperando confirmación humana (run_command). */
   pendingPermission?: PendingPermission;
 
   setAgent(id: AgentId): void;
   setConnected(connected: boolean): void;
   onReady(providerId: string, model: string): void;
+  setProjectPath(path: string): void;
+  /** Default del proyecto (cwd del sidecar) — sólo si el usuario no eligió uno. */
+  setDefaultProject(cwd: string): void;
+  /** Empieza una sesión nueva y vacía (mantiene agente y proyecto). */
+  newSession(): void;
+  /** Carga una sesión guardada en la UI (el transcript y su agente/proyecto). */
+  loadSession(s: StoredSession): void;
+  /** Pide insertar texto en el composer (lo consume el Composer y lo limpia). */
+  insertIntoComposer(text: string): void;
+  consumeInsert(): void;
 
   // Log de desarrollo: lo alimenta transport/client.ts; lo lee LogsPanel.
   pushLog(entry: Omit<LogEntry, "id" | "ts">): void;
@@ -117,10 +136,31 @@ export const useSession = create<SessionState>((set) => ({
   streaming: false,
   connected: false,
   logs: [],
+  projectPath: localStorage.getItem(PROJECT_KEY) ?? undefined,
 
   setAgent: (agentId) => set({ agentId }),
   setConnected: (connected) => set({ connected }),
   onReady: (providerId, model) => set({ providerId, model, connected: true }),
+
+  setProjectPath: (path) => {
+    localStorage.setItem(PROJECT_KEY, path);
+    set({ projectPath: path });
+  },
+  setDefaultProject: (cwd) =>
+    set((s) => (s.projectPath ? {} : { projectPath: cwd })),
+
+  newSession: () =>
+    set({ messages: [], sessionId: crypto.randomUUID(), streaming: false, pendingPermission: undefined }),
+
+  loadSession: (s) =>
+    set((prev) => ({
+      messages: s.messages,
+      agentId: s.agentId,
+      projectPath: s.projectPath ?? prev.projectPath,
+      sessionId: s.id,
+      streaming: false,
+      pendingPermission: undefined,
+    })),
 
   pushLog: (entry) =>
     set((s) => ({
@@ -160,6 +200,7 @@ export const useSession = create<SessionState>((set) => ({
   startUserTurn: (text) =>
     set((s) => ({
       streaming: true,
+      sessionId: s.sessionId ?? crypto.randomUUID(),
       messages: [
         ...s.messages,
         { role: "user", text },
@@ -211,6 +252,9 @@ export const useSession = create<SessionState>((set) => ({
       }
       return {};
     }),
+
+  insertIntoComposer: (text) => set({ pendingInsert: text }),
+  consumeInsert: () => set({ pendingInsert: undefined }),
 
   setPendingPermission: (pendingPermission) => set({ pendingPermission }),
   clearPendingPermission: () => set({ pendingPermission: undefined }),
