@@ -48,6 +48,13 @@ export const MAX_TURNS = Number(process.env.MYAGENT_MAX_TURNS) || Number.MAX_SAF
 /** Repeticiones idénticas de tool-calls seguidas antes de cortar el bucle. */
 export const MAX_IDENTICAL_TOOL_TURNS = 3;
 
+/**
+ * Máximo de subagentes que un solo `task` puede lanzar (fan-out). Tope defensivo
+ * para no abrir decenas de conexiones al proveedor de una; el schema Zod lo
+ * aplica. Holgado respecto del uso real (varias exploraciones en paralelo).
+ */
+export const MAX_SUBAGENTS_PER_CALL = 4;
+
 // ── Snapshots por sesión (edit/hashline/snapshot-store.ts) ───────────────────
 
 /** Versiones retenidas por archivo en el SnapshotStore. */
