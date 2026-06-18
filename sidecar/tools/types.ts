@@ -40,6 +40,20 @@ export interface ToolContext {
    * está provista (tests), start_app igual arranca pero nadie lo limpia.
    */
   trackProcess?: (child: ChildProcess) => void;
+  /**
+   * Lanza un subagente con contexto aislado y devuelve su resumen (lo usa la tool
+   * `task`). Lo cablea el server, que es quien tiene provider/model/emit/signal;
+   * cierra sobre ellos. El `parentToolId` es el id de la tool-call `task` que lo
+   * originó, para que la UI marque sus eventos como anidados. Si no está provista
+   * (tests/headless sin orquestador), `task` responde error y NO corre nada
+   * —misma convención que `confirm`/`onPlan`. Su ausencia en el ctx del subagente
+   * es además la garantía estructural de profundidad 1 (no puede delegar).
+   */
+  spawnSubagent?: (req: {
+    subagentType: "explore" | "build";
+    prompt: string;
+    parentToolId: string;
+  }) => Promise<{ text: string; isError: boolean }>;
 }
 
 export interface ToolResult {
