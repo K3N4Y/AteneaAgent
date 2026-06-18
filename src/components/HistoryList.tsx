@@ -1,9 +1,10 @@
-// Lista de sesiones guardadas (localStorage). Click retoma una; "+ Nueva" abre
-// una vacía. Se re-renderiza cuando cambian los mensajes (un turno persiste) o
-// la sesión activa; un contador local fuerza el refresco tras borrar.
+// Lista de sesiones guardadas (localStorage), agrupadas por carpeta de proyecto.
+// Click retoma una; "+ Nueva" abre una vacía. Se re-renderiza cuando cambian los
+// mensajes (un turno persiste) o la sesión activa; un contador local fuerza el
+// refresco tras borrar.
 
 import { useState } from "react";
-import { listSessions, deleteSession } from "../state/history";
+import { listSessions, deleteSession, type StoredSession } from "../state/history";
 import { useSession } from "../state/session";
 import { resumeSession, startNewSession } from "../transport/client";
 
@@ -17,35 +18,73 @@ function rel(ts: number): string {
   return `hace ${Math.floor(h / 24)} d`;
 }
 
+// Nombre de la carpeta a partir de la ruta (último segmento). Sin ruta → null.
+function folderName(path?: string): string | null {
+  if (!path) return null;
+  const parts = path.replace(/[/\\]+$/, "").split(/[/\\]/);
+  return parts[parts.length - 1] || path;
+}
+
+interface Group {
+  path?: string;
+  label: string;
+  sessions: StoredSession[];
+}
+
+// Agrupa por projectPath preservando el orden por recencia (listSessions ya
+// viene ordenado desc), así el proyecto usado más recientemente queda arriba.
+function groupByProject(sessions: StoredSession[]): Group[] {
+  const groups: Group[] = [];
+  const byPath = new Map<string, Group>();
+  for (const s of sessions) {
+    const key = s.projectPath ?? "";
+    let g = byPath.get(key);
+    if (!g) {
+      g = { path: s.projectPath, label: folderName(s.projectPath) ?? "Sin proyecto", sessions: [] };
+      byPath.set(key, g);
+      groups.push(g);
+    }
+    g.sessions.push(s);
+  }
+  return groups;
+}
+
 export function HistoryList() {
   const sessionId = useSession((s) => s.sessionId);
   useSession((s) => s.messages); // re-render al persistir un turno
   const [, force] = useState(0);
-  const sessions = listSessions();
+  const groups = groupByProject(listSessions());
 
   return (
     <div className="history">
       <button className="history-new" onClick={startNewSession}>
         + Nueva sesión
       </button>
-      {sessions.length === 0 && <div className="tree-empty">Sin sesiones guardadas.</div>}
-      {sessions.map((s) => (
-        <div key={s.id} className={`history-item ${s.id === sessionId ? "active" : ""}`}>
-          <button className="history-open" onClick={() => resumeSession(s)} title={s.title}>
-            <span className="history-title">{s.title}</span>
-            <span className="history-time">{rel(s.updatedAt)}</span>
-          </button>
-          <button
-            className="history-del"
-            title="Eliminar"
-            aria-label="Eliminar sesión"
-            onClick={() => {
-              deleteSession(s.id);
-              force((n) => n + 1);
-            }}
-          >
-            ×
-          </button>
+      {groups.length === 0 && <div className="tree-empty">Sin sesiones guardadas.</div>}
+      {groups.map((g) => (
+        <div key={g.path ?? ""} className="history-group">
+          <div className="history-group-label" title={g.path ?? g.label}>
+            {g.label}
+          </div>
+          {g.sessions.map((s) => (
+            <div key={s.id} className={`history-item ${s.id === sessionId ? "active" : ""}`}>
+              <button className="history-open" onClick={() => resumeSession(s)} title={s.title}>
+                <span className="history-title">{s.title}</span>
+                <span className="history-time">{rel(s.updatedAt)}</span>
+              </button>
+              <button
+                className="history-del"
+                title="Eliminar"
+                aria-label="Eliminar sesión"
+                onClick={() => {
+                  deleteSession(s.id);
+                  force((n) => n + 1);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       ))}
     </div>
