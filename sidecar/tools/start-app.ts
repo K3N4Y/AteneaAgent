@@ -20,15 +20,34 @@ import { MAX_COMMAND_OUTPUT_BYTES } from "../config/limits";
 
 export function killProcessTree(child: ChildProcess): void {
   if (!child.pid) {
-    try { child.kill("SIGKILL"); } catch { /* ya muerto */ }
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      /* ya muerto */
+    }
     return;
   }
   if (process.platform === "win32") {
-    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true })
-      .on("error", () => { try { child.kill("SIGKILL"); } catch { /* ya muerto */ } });
+    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    }).on("error", () => {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* ya muerto */
+      }
+    });
   } else {
-    try { process.kill(-child.pid, "SIGKILL"); }
-    catch { try { child.kill("SIGKILL"); } catch { /* ya muerto */ } }
+    try {
+      process.kill(-child.pid, "SIGKILL");
+    } catch {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* ya muerto */
+      }
+    }
   }
 }
 
@@ -39,11 +58,15 @@ const schema = z.object({
   command: z
     .string()
     .min(1)
-    .describe("Comando que arranca la app, p. ej. 'npm run dev'. Debe ser un proceso de larga duración."),
+    .describe(
+      "Comando que arranca la app, p. ej. 'npm run dev'. Debe ser un proceso de larga duración.",
+    ),
   cwd: z
     .string()
     .optional()
-    .describe('Directorio de trabajo, relativo a la raíz del proyecto. Por defecto "." (la raíz).'),
+    .describe(
+      'Directorio de trabajo, relativo a la raíz del proyecto. Por defecto "." (la raíz).',
+    ),
   ready: z
     .string()
     .optional()
@@ -56,7 +79,9 @@ const schema = z.object({
     .positive()
     .max(MAX_WAIT_MS)
     .optional()
-    .describe(`Cuánto esperar a que arranque antes de reportar el estado (default ${DEFAULT_WAIT_MS} ms).`),
+    .describe(
+      `Cuánto esperar a que arranque antes de reportar el estado (default ${DEFAULT_WAIT_MS} ms).`,
+    ),
 });
 
 export const startAppTool: Tool<z.infer<typeof schema>> = {
@@ -72,15 +97,25 @@ export const startAppTool: Tool<z.infer<typeof schema>> = {
     try {
       cwdAbs = resolveWithinProject(cwd && cwd.trim() ? cwd : ".", ctx);
     } catch (err) {
-      return { output: `cwd inválido: ${(err as Error).message}`, isError: true };
+      return {
+        output: `cwd inválido: ${(err as Error).message}`,
+        isError: true,
+      };
     }
 
     // Mismo gate de confirmación que run_command: arrancar un proceso es una
     // acción difícil de revertir. Sin ctx.confirm ⇒ denegado por seguridad.
     const approved = ctx.confirm ? await ctx.confirm({ command, cwd }) : false;
-    if (!approved) return { output: "El usuario rechazó arrancar la app.", isError: true };
+    if (!approved)
+      return { output: "El usuario rechazó arrancar la app.", isError: true };
 
-    return spawnApp(command, cwdAbs, ready, wait_ms ?? DEFAULT_WAIT_MS, ctx.trackProcess);
+    return spawnApp(
+      command,
+      cwdAbs,
+      ready,
+      wait_ms ?? DEFAULT_WAIT_MS,
+      ctx.trackProcess,
+    );
   },
 };
 
@@ -92,16 +127,23 @@ function spawnApp(
   track: ((child: ReturnType<typeof spawn>) => void) | undefined,
 ): Promise<ToolResult> {
   return new Promise((resolve) => {
-    const child = spawn(command, { cwd, shell: true, env: subprocessEnv(cwd), detached: true });
+    const child = spawn(command, {
+      cwd,
+      shell: true,
+      env: subprocessEnv(cwd),
+      detached: true,
+    });
     track?.(child); // que el server pueda matarlo al cerrar la sesión
 
     const chunks: Buffer[] = [];
     let remaining = MAX_COMMAND_OUTPUT_BYTES;
     let settled = false;
     let exited: number | null = null;
-    let timer: ReturnType<typeof setTimeout>;
 
-    const logs = () => (chunks.length ? Buffer.concat(chunks).toString("utf8") : "(sin salida todavía)");
+    const logs = () =>
+      chunks.length
+        ? Buffer.concat(chunks).toString("utf8")
+        : "(sin salida todavía)";
 
     const finish = (readyHit: boolean) => {
       if (settled) return;
@@ -114,7 +156,9 @@ function spawnApp(
           isError: true,
         });
       } else {
-        const note = readyHit ? `lista (apareció "${ready}")` : `corriendo tras ${waitMs} ms`;
+        const note = readyHit
+          ? `lista (apareció "${ready}")`
+          : `corriendo tras ${waitMs} ms`;
         resolve({
           output: `$ ${command}\n[app ${note}; pid ${child.pid}, sigue viva en segundo plano]\n${logs()}`,
           isError: false,
@@ -128,7 +172,11 @@ function spawnApp(
         chunks.push(slice);
         remaining -= slice.length;
       }
-      if (ready && !settled && Buffer.concat(chunks).toString("utf8").includes(ready)) {
+      if (
+        ready &&
+        !settled &&
+        Buffer.concat(chunks).toString("utf8").includes(ready)
+      ) {
         finish(true);
       }
     };
@@ -146,6 +194,6 @@ function spawnApp(
       finish(false);
     });
 
-    timer = setTimeout(() => finish(false), waitMs);
+    const timer = setTimeout(() => finish(false), waitMs);
   });
 }

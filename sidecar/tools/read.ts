@@ -7,10 +7,16 @@ import { z } from "zod";
 import { type Tool, type ToolResult } from "./types";
 import { readWithinProject } from "./fs-safe";
 import { computeFileHash, toLines } from "../edit/hashline/hash";
-import { formatHeader, parseRanges, buildNumbered } from "../edit/hashline/format";
+import {
+  formatHeader,
+  parseRanges,
+  buildNumbered,
+} from "../edit/hashline/format";
 
 const schema = z.object({
-  path: z.string().describe("Ruta del archivo, relativa a la raíz del proyecto."),
+  path: z
+    .string()
+    .describe("Ruta del archivo, relativa a la raíz del proyecto."),
   range: z
     .string()
     .optional()

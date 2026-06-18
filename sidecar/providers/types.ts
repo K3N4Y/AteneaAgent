@@ -11,7 +11,12 @@ export interface ModelInfo {
 export type ContentPart =
   | { type: "text"; text: string }
   | { type: "tool_use"; id: string; name: string; input: unknown }
-  | { type: "tool_result"; toolUseId: string; output: string; isError?: boolean };
+  | {
+      type: "tool_result";
+      toolUseId: string;
+      output: string;
+      isError?: boolean;
+    };
 
 export type LlmMessage =
   | { role: "user"; content: ContentPart[] }

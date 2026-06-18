@@ -96,7 +96,11 @@ export function applyOps(lines: string[], ops: Op[]): string[] {
  */
 export function diffPreview(before: string[], after: string[]): string {
   let pre = 0;
-  while (pre < before.length && pre < after.length && before[pre] === after[pre]) {
+  while (
+    pre < before.length &&
+    pre < after.length &&
+    before[pre] === after[pre]
+  ) {
     pre++;
   }
   let suf = 0;

@@ -41,7 +41,10 @@ function headerHash(output: string): string {
 
 async function main() {
   const root = mkdtempSync(join(tmpdir(), "myagent-smoke-"));
-  const ctx: ToolContext = { projectRoot: root, snapshots: new SnapshotStore() };
+  const ctx: ToolContext = {
+    projectRoot: root,
+    snapshots: new SnapshotStore(),
+  };
   console.log(`temp: ${root}`);
 
   // 1. write_file crea el archivo.
@@ -58,7 +61,11 @@ async function main() {
   // 3. read_file numera y trae hash.
   const r = await readFileTool.run({ path: "a.ts" }, ctx);
   check("read_file ok", !r.isError);
-  check("read_file numera líneas", r.output.includes("\n1:const X = 1;"), r.output);
+  check(
+    "read_file numera líneas",
+    r.output.includes("\n1:const X = 1;"),
+    r.output,
+  );
   const tag = headerHash(r.output);
 
   // 4. edit_file SWAP usando la cabecera devuelta.
@@ -69,7 +76,8 @@ async function main() {
   check("edit_file SWAP ok", !e.isError, e.output);
   check(
     "archivo refleja el SWAP",
-    readFileSync(join(root, "a.ts"), "utf8") === "const X = 1;\nconst Y = 22;\nconst Z = 3;",
+    readFileSync(join(root, "a.ts"), "utf8") ===
+      "const X = 1;\nconst Y = 22;\nconst Z = 3;",
     readFileSync(join(root, "a.ts"), "utf8"),
   );
 
@@ -78,7 +86,10 @@ async function main() {
     { input: `[a.ts#${tag}]\nSWAP 1.=1:\n+const X = 999;` },
     ctx,
   );
-  check("edit_file detecta mismatch de hash", e2.isError && e2.output.includes("cambió"));
+  check(
+    "edit_file detecta mismatch de hash",
+    e2.isError && e2.output.includes("cambió"),
+  );
 
   // 6. INS.HEAD + INS.TAIL + DEL combinados (re-leer para tag fresco).
   const r2 = await readFileTool.run({ path: "a.ts" }, ctx);
@@ -105,7 +116,9 @@ async function main() {
   const r3 = await readFileTool.run({ path: "a.ts", range: "2-3" }, ctx);
   check(
     "read_file rango 2-3",
-    r3.output.includes("\n2:const X = 1;") && r3.output.includes("\n3:const Y = 22;") && !r3.output.includes("\n1:"),
+    r3.output.includes("\n2:const X = 1;") &&
+      r3.output.includes("\n3:const Y = 22;") &&
+      !r3.output.includes("\n1:"),
     r3.output,
   );
 
@@ -116,54 +129,122 @@ async function main() {
   // ── Fase 1: list_dir / search / run_command / submit_plan ──────────────────
 
   // 9. list_dir lista entradas y marca los directorios con "/".
-  await writeFileTool.run({ path: "sub/b.ts", content: "export const ok = true;\n" }, ctx);
+  await writeFileTool.run(
+    { path: "sub/b.ts", content: "export const ok = true;\n" },
+    ctx,
+  );
   const ld = await listDirTool.run({}, ctx);
-  check("list_dir lista a.ts", !ld.isError && ld.output.includes("a.ts"), ld.output);
+  check(
+    "list_dir lista a.ts",
+    !ld.isError && ld.output.includes("a.ts"),
+    ld.output,
+  );
   check("list_dir marca el dir con /", ld.output.includes("sub/"), ld.output);
 
   // 10. search encuentra contenido y lo ubica como path:línea:texto.
   const sr = await searchTool.run({ query: "const Y" }, ctx);
-  check("search encuentra coincidencia en a.ts", !sr.isError && sr.output.includes("a.ts:"), sr.output);
+  check(
+    "search encuentra coincidencia en a.ts",
+    !sr.isError && sr.output.includes("a.ts:"),
+    sr.output,
+  );
   const sr0 = await searchTool.run({ query: "no-existe-zzz" }, ctx);
-  check("search sin coincidencias", !sr0.isError && sr0.output.includes("Sin coincidencias"), sr0.output);
-  const srx = await searchTool.run({ query: "const\\s+ok", regex: true, path: "sub" }, ctx);
-  check("search regex acotado a subdir", !srx.isError && srx.output.includes("sub/b.ts:"), srx.output);
+  check(
+    "search sin coincidencias",
+    !sr0.isError && sr0.output.includes("Sin coincidencias"),
+    sr0.output,
+  );
+  const srx = await searchTool.run(
+    { query: "const\\s+ok", regex: true, path: "sub" },
+    ctx,
+  );
+  check(
+    "search regex acotado a subdir",
+    !srx.isError && srx.output.includes("sub/b.ts:"),
+    srx.output,
+  );
 
   // 11. run_command: confirma true ⇒ ejecuta; false ⇒ no; sin confirm ⇒ denegado.
   const allow: ToolContext = { ...ctx, confirm: async () => true };
   const rc = await runCommandTool.run({ command: "echo hola-mundo" }, allow);
-  check("run_command corre con confirmación", !rc.isError && rc.output.includes("hola-mundo"), rc.output);
+  check(
+    "run_command corre con confirmación",
+    !rc.isError && rc.output.includes("hola-mundo"),
+    rc.output,
+  );
   const deny: ToolContext = { ...ctx, confirm: async () => false };
   const rcd = await runCommandTool.run({ command: "echo no-deberia" }, deny);
-  check("run_command rechazado no ejecuta", rcd.isError && rcd.output.includes("rechazó"), rcd.output);
+  check(
+    "run_command rechazado no ejecuta",
+    rcd.isError && rcd.output.includes("rechazó"),
+    rcd.output,
+  );
   const rcn = await runCommandTool.run({ command: "echo nada" }, ctx);
   check("run_command sin confirm asume denegado", rcn.isError, rcn.output);
 
   // 12. submit_plan emite el plan vía onPlan.
   let captured = "";
-  const planCtx: ToolContext = { ...ctx, onPlan: (md) => { captured = md; } };
+  const planCtx: ToolContext = {
+    ...ctx,
+    onPlan: (md) => {
+      captured = md;
+    },
+  };
   const sp = await submitPlanTool.run({ markdown: "# Plan\n1. paso" }, planCtx);
   check("submit_plan ok", !sp.isError, sp.output);
-  check("submit_plan emite el markdown por onPlan", captured.includes("# Plan"), captured);
+  check(
+    "submit_plan emite el markdown por onPlan",
+    captured.includes("# Plan"),
+    captured,
+  );
 
   // ── Fase 3: start_app (proceso de fondo de larga duración) ─────────────────
 
   const apps: ChildProcess[] = [];
-  const appCtx: ToolContext = { ...ctx, confirm: async () => true, trackProcess: (c) => apps.push(c) };
+  const appCtx: ToolContext = {
+    ...ctx,
+    confirm: async () => true,
+    trackProcess: (c) => apps.push(c),
+  };
 
   // 13. start_app deja vivo un proceso de larga duración y lo rastrea para limpieza.
-  const sa = await startAppTool.run({ command: "sleep 5", wait_ms: 300 }, appCtx);
-  check("start_app reporta app corriendo", !sa.isError && sa.output.includes("sigue viva"), sa.output);
-  check("start_app rastrea el proceso", apps.length === 1 && apps[0].killed === false, String(apps.length));
+  const sa = await startAppTool.run(
+    { command: "sleep 5", wait_ms: 300 },
+    appCtx,
+  );
+  check(
+    "start_app reporta app corriendo",
+    !sa.isError && sa.output.includes("sigue viva"),
+    sa.output,
+  );
+  check(
+    "start_app rastrea el proceso",
+    apps.length === 1 && apps[0].killed === false,
+    String(apps.length),
+  );
   apps[0].kill("SIGKILL");
 
   // 14. proceso que termina solo → no quedó corriendo (isError).
-  const sa2 = await startAppTool.run({ command: "true", wait_ms: 1000 }, appCtx);
-  check("start_app detecta proceso que termina", sa2.isError && sa2.output.includes("no quedó corriendo"), sa2.output);
+  const sa2 = await startAppTool.run(
+    { command: "true", wait_ms: 1000 },
+    appCtx,
+  );
+  check(
+    "start_app detecta proceso que termina",
+    sa2.isError && sa2.output.includes("no quedó corriendo"),
+    sa2.output,
+  );
 
   // 15. la cadena `ready` corta la espera antes del wait_ms.
-  const sa3 = await startAppTool.run({ command: "echo READY; sleep 5", ready: "READY", wait_ms: 5000 }, appCtx);
-  check("start_app corta al ver la cadena ready", !sa3.isError && sa3.output.includes("apareció"), sa3.output);
+  const sa3 = await startAppTool.run(
+    { command: "echo READY; sleep 5", ready: "READY", wait_ms: 5000 },
+    appCtx,
+  );
+  check(
+    "start_app corta al ver la cadena ready",
+    !sa3.isError && sa3.output.includes("apareció"),
+    sa3.output,
+  );
   apps[apps.length - 1].kill("SIGKILL");
 
   // 16. sin confirm ⇒ denegado (mismo gate que run_command).
@@ -179,7 +260,11 @@ async function main() {
     { tasks: [{ subagent_type: "explore", description: "investigá X" }] },
     ctx,
   );
-  check("task sin spawnSubagent asume sin orquestador", t0.isError && t0.output.includes("orquestador"), t0.output);
+  check(
+    "task sin spawnSubagent asume sin orquestador",
+    t0.isError && t0.output.includes("orquestador"),
+    t0.output,
+  );
 
   // 18. un task ⇒ llama a spawnSubagent una vez con el prompt correcto y devuelve su text.
   const calls: { subagentType: string; prompt: string }[] = [];
@@ -194,9 +279,21 @@ async function main() {
     { tasks: [{ subagent_type: "explore", description: "buscá la config" }] },
     stubOk,
   );
-  check("task llama spawnSubagent una vez", calls.length === 1, String(calls.length));
-  check("task pasa la description como prompt", calls[0]?.prompt === "buscá la config", calls[0]?.prompt);
-  check("task devuelve el text del subagente", !t1.isError && t1.output.includes("hallazgo de explore"), t1.output);
+  check(
+    "task llama spawnSubagent una vez",
+    calls.length === 1,
+    String(calls.length),
+  );
+  check(
+    "task pasa la description como prompt",
+    calls[0]?.prompt === "buscá la config",
+    calls[0]?.prompt,
+  );
+  check(
+    "task devuelve el text del subagente",
+    !t1.isError && t1.output.includes("hallazgo de explore"),
+    t1.output,
+  );
 
   // 19. varios tasks ⇒ se llaman todos (paralelo), output combina en orden;
   //     isError sólo si fallan TODOS.
@@ -209,7 +306,10 @@ async function main() {
     },
     {
       ...ctx,
-      spawnSubagent: async ({ subagentType }) => ({ text: `R-${subagentType}`, isError: false }),
+      spawnSubagent: async ({ subagentType }) => ({
+        text: `R-${subagentType}`,
+        isError: false,
+      }),
     },
   );
   check(
@@ -223,12 +323,28 @@ async function main() {
   );
   // isError sólo si TODOS fallan: con uno ok ⇒ no es error; con todos fallidos ⇒ sí.
   const t2b = await taskTool.run(
-    { tasks: [{ subagent_type: "explore", description: "a" }, { subagent_type: "explore", description: "b" }] },
-    { ...ctx, spawnSubagent: async ({ prompt }) => ({ text: "boom", isError: prompt === "a" }) },
+    {
+      tasks: [
+        { subagent_type: "explore", description: "a" },
+        { subagent_type: "explore", description: "b" },
+      ],
+    },
+    {
+      ...ctx,
+      spawnSubagent: async ({ prompt }) => ({
+        text: "boom",
+        isError: prompt === "a",
+      }),
+    },
   );
   check("task no es error si alguno tiene éxito", !t2b.isError, t2b.output);
   const t2c = await taskTool.run(
-    { tasks: [{ subagent_type: "explore", description: "a" }, { subagent_type: "explore", description: "b" }] },
+    {
+      tasks: [
+        { subagent_type: "explore", description: "a" },
+        { subagent_type: "explore", description: "b" },
+      ],
+    },
     { ...ctx, spawnSubagent: async () => ({ text: "boom", isError: true }) },
   );
   check("task es error si TODOS fallan", t2c.isError, t2c.output);
@@ -244,11 +360,17 @@ async function main() {
   );
 
   // 21. fan-out cap: un array más largo que MAX_SUBAGENTS_PER_CALL lo rechaza Zod.
-  const tooMany = Array.from({ length: MAX_SUBAGENTS_PER_CALL + 1 }, (_, i) => ({
-    subagent_type: "explore" as const,
-    description: `t${i}`,
-  }));
-  check("task rechaza más de MAX_SUBAGENTS_PER_CALL (schema)", !taskTool.schema.safeParse({ tasks: tooMany }).success);
+  const tooMany = Array.from(
+    { length: MAX_SUBAGENTS_PER_CALL + 1 },
+    (_, i) => ({
+      subagent_type: "explore" as const,
+      description: `t${i}`,
+    }),
+  );
+  check(
+    "task rechaza más de MAX_SUBAGENTS_PER_CALL (schema)",
+    !taskTool.schema.safeParse({ tasks: tooMany }).success,
+  );
 
   rmSync(root, { recursive: true, force: true });
   console.log(failures === 0 ? "\nTODO OK ✓" : `\n${failures} FALLO(S) ✗`);

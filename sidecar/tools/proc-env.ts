@@ -21,7 +21,10 @@ const SAFE_ENV_VARS = [
 export function subprocessEnv(cwd: string): NodeJS.ProcessEnv {
   return {
     ...Object.fromEntries(
-      SAFE_ENV_VARS.filter((k) => k in process.env).map((k) => [k, process.env[k]!]),
+      SAFE_ENV_VARS.filter((k) => k in process.env).map((k) => [
+        k,
+        process.env[k]!,
+      ]),
     ),
     PWD: cwd,
   };

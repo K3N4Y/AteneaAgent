@@ -16,7 +16,9 @@ function App() {
   const connected = useSession((s) => s.connected);
   const model = useSession((s) => s.model);
   const empty = useSession((s) => s.messages.length === 0);
-  const logErrors = useSession((s) => s.logs.reduce((n, l) => n + (l.level === "error" ? 1 : 0), 0));
+  const logErrors = useSession((s) =>
+    s.logs.reduce((n, l) => n + (l.level === "error" ? 1 : 0), 0),
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -58,7 +60,7 @@ function App() {
         </button>
         <div className={`conn ${connected ? "on" : "off"}`}>
           <span className="conn-dot" />
-          {connected ? model ?? "conectado" : "sin conexión"}
+          {connected ? (model ?? "conectado") : "sin conexión"}
         </div>
       </header>
       <div className="body">

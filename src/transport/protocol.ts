@@ -17,7 +17,12 @@ export interface DirEntry {
 export type ContentPart =
   | { type: "text"; text: string }
   | { type: "tool_use"; id: string; name: string; input: unknown }
-  | { type: "tool_result"; toolUseId: string; output: string; isError?: boolean };
+  | {
+      type: "tool_result";
+      toolUseId: string;
+      output: string;
+      isError?: boolean;
+    };
 
 export type LlmMessage =
   | { role: "user"; content: ContentPart[] }
@@ -32,17 +37,42 @@ export type IncomingEvent =
   | { type: "config_ok"; providerId: string; model: string }
   | { type: "assistant_delta"; text: string; parentToolId?: string }
   | { type: "thinking_delta"; text: string; parentToolId?: string }
-  | { type: "tool_call"; id: string; name: string; input: unknown; parentToolId?: string }
-  | { type: "tool_result"; id: string; name: string; output: string; isError: boolean; parentToolId?: string }
+  | {
+      type: "tool_call";
+      id: string;
+      name: string;
+      input: unknown;
+      parentToolId?: string;
+    }
+  | {
+      type: "tool_result";
+      id: string;
+      name: string;
+      output: string;
+      isError: boolean;
+      parentToolId?: string;
+    }
   | { type: "permission_request"; id: string; command: string; cwd?: string }
-  | { type: "dir_listing"; reqId: string; path: string; entries: DirEntry[]; error?: string }
+  | {
+      type: "dir_listing";
+      reqId: string;
+      path: string;
+      entries: DirEntry[];
+      error?: string;
+    }
   | { type: "plan"; markdown: string }
   | { type: "done"; usage?: unknown }
   | { type: "error"; message: string };
 
 // Mensajes que la UI envía AL motor.
 export type OutgoingMessage =
-  | { type: "user_message"; text: string; agentId: AgentId; projectPath?: string; approve?: boolean }
+  | {
+      type: "user_message";
+      text: string;
+      agentId: AgentId;
+      projectPath?: string;
+      approve?: boolean;
+    }
   | { type: "abort" }
   | { type: "set_config"; providerId: string; model: string; apiKey?: string }
   | { type: "permission_response"; id: string; approved: boolean }

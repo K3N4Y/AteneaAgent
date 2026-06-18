@@ -36,7 +36,9 @@ export function Composer({ onOpenSettings }: { onOpenSettings: () => void }) {
     <div className={`composer ${disabled ? "is-disabled" : ""}`}>
       <textarea
         className="composer-input"
-        placeholder={connected ? "Escribí un mensaje al agente…" : "Conectando al motor…"}
+        placeholder={
+          connected ? "Escribí un mensaje al agente…" : "Conectando al motor…"
+        }
         value={text}
         disabled={disabled}
         rows={2}

@@ -13,7 +13,11 @@ export function PlanView({ plan }: { plan: UiPlan }) {
   // Mientras el turno sigue activo el motor está "ocupado": aprobar dispararía
   // un mensaje nuevo que rebotaría. Se habilita al terminar el turno.
   const streaming = useSession((s) => s.streaming);
-  const label = plan.approved ? "Aprobado" : streaming ? "Esperá a que termine…" : "Aprobar y construir";
+  const label = plan.approved
+    ? "Aprobado"
+    : streaming
+      ? "Esperá a que termine…"
+      : "Aprobar y construir";
 
   return (
     <div className={`plan-view ${plan.approved ? "approved" : ""}`}>

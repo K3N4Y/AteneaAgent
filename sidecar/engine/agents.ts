@@ -51,7 +51,10 @@ Para no romper nada en proyectos multi-archivo:
 - Mantené la coherencia entre archivos (imports, tipos, rutas).
 - Al final, arrancá la app con start_app y reportá su URL/estado.`;
 
-const PROMPTS = { plan: PLAN, build: BUILD, e2e: E2E } satisfies Record<AgentId, string>;
+const PROMPTS = { plan: PLAN, build: BUILD, e2e: E2E } satisfies Record<
+  AgentId,
+  string
+>;
 
 export function systemPromptFor(agentId: AgentId): string {
   return PROMPTS[agentId] ?? BUILD;

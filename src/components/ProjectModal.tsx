@@ -28,7 +28,11 @@ function knownProjects(current?: string): Known[] {
     map.set(s.projectPath, k);
   }
   if (current && !map.has(current)) {
-    map.set(current, { path: current, label: projectBasename(current), count: 0 });
+    map.set(current, {
+      path: current,
+      label: projectBasename(current),
+      count: 0,
+    });
   }
   return [...map.values()];
 }
@@ -60,7 +64,9 @@ export function ProjectModal({ onClose }: { onClose: () => void }) {
 
         <div className="project-list">
           {projects.length === 0 && (
-            <div className="modal-hint">Todavía no abriste ningún proyecto.</div>
+            <div className="modal-hint">
+              Todavía no abriste ningún proyecto.
+            </div>
           )}
           {projects.map((p) => (
             <button
@@ -71,12 +77,17 @@ export function ProjectModal({ onClose }: { onClose: () => void }) {
             >
               <span className="project-glyph">📁</span>
               <span className="project-row-name">{p.label}</span>
-              {p.count > 0 && <span className="project-row-count">{p.count}</span>}
+              {p.count > 0 && (
+                <span className="project-row-count">{p.count}</span>
+              )}
             </button>
           ))}
         </div>
 
-        <button className="modal-btn modal-btn-save project-open-new" onClick={openNew}>
+        <button
+          className="modal-btn modal-btn-save project-open-new"
+          onClick={openNew}
+        >
           + Abrir nuevo proyecto…
         </button>
       </div>

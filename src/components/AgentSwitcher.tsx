@@ -7,12 +7,33 @@ import { useEffect, useRef, useState } from "react";
 import type { FC } from "react";
 import { useSession } from "../state/session";
 import type { AgentId } from "../transport/protocol";
-import { CheckIcon, ChevronIcon, LayersIcon, PlanIcon, TerminalIcon } from "./icons";
+import {
+  CheckIcon,
+  ChevronIcon,
+  LayersIcon,
+  PlanIcon,
+  TerminalIcon,
+} from "./icons";
 
 const AGENTS: { id: AgentId; label: string; hint: string; Icon: FC }[] = [
-  { id: "plan", label: "Plan", hint: "sólo lee y propone un plan", Icon: PlanIcon },
-  { id: "build", label: "Build", hint: "lee, edita y corre comandos", Icon: TerminalIcon },
-  { id: "e2e", label: "E2E", hint: "construye el proyecto entero", Icon: LayersIcon },
+  {
+    id: "plan",
+    label: "Plan",
+    hint: "sólo lee y propone un plan",
+    Icon: PlanIcon,
+  },
+  {
+    id: "build",
+    label: "Build",
+    hint: "lee, edita y corre comandos",
+    Icon: TerminalIcon,
+  },
+  {
+    id: "e2e",
+    label: "E2E",
+    hint: "construye el proyecto entero",
+    Icon: LayersIcon,
+  },
 ];
 
 export function AgentSwitcher() {
@@ -27,7 +48,8 @@ export function AgentSwitcher() {
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);

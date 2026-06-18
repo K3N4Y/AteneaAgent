@@ -45,7 +45,10 @@ export const editFileTool: Tool<z.infer<typeof schema>> = {
     try {
       sections = parseHashline(input);
     } catch (err) {
-      return { output: `Error de formato hashline: ${(err as Error).message}`, isError: true };
+      return {
+        output: `Error de formato hashline: ${(err as Error).message}`,
+        isError: true,
+      };
     }
 
     // Fase 1: validar hashes y calcular el resultado de cada sección.
@@ -65,7 +68,10 @@ export const editFileTool: Tool<z.infer<typeof schema>> = {
 
       const currentHash = computeFileHash(current);
       if (currentHash !== sec.tag) {
-        return { output: mismatchMessage(sec.path, sec.tag, current, currentHash), isError: true };
+        return {
+          output: mismatchMessage(sec.path, sec.tag, current, currentHash),
+          isError: true,
+        };
       }
 
       const before = toLines(current);
@@ -73,9 +79,17 @@ export const editFileTool: Tool<z.infer<typeof schema>> = {
       try {
         after = applyOps(before, sec.ops);
       } catch (err) {
-        return { output: `Error aplicando ops en ${sec.path}: ${(err as Error).message}`, isError: true };
+        return {
+          output: `Error aplicando ops en ${sec.path}: ${(err as Error).message}`,
+          isError: true,
+        };
       }
-      planned.push({ path: sec.path, before, after, newHash: computeFileHash(after.join("\n")) });
+      planned.push({
+        path: sec.path,
+        before,
+        after,
+        newHash: computeFileHash(after.join("\n")),
+      });
     }
 
     // Fase 2: escribir todo (ya validado) y armar la salida.
@@ -84,10 +98,15 @@ export const editFileTool: Tool<z.infer<typeof schema>> = {
       try {
         await writeWithinProject(p.path, p.after.join("\n"), ctx);
       } catch (err) {
-        return { output: `No se pudo escribir ${p.path}: ${(err as Error).message}`, isError: true };
+        return {
+          output: `No se pudo escribir ${p.path}: ${(err as Error).message}`,
+          isError: true,
+        };
       }
       ctx.snapshots.record(p.path, p.after, p.newHash);
-      results.push(`${formatHeader(p.path, p.newHash)}\n${diffPreview(p.before, p.after)}`);
+      results.push(
+        `${formatHeader(p.path, p.newHash)}\n${diffPreview(p.before, p.after)}`,
+      );
     }
 
     return { output: results.join("\n\n"), isError: false };

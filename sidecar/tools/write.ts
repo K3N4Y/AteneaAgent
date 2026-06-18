@@ -11,12 +11,16 @@ import { formatHeader } from "../edit/hashline/format";
 import { MAX_FILE_BYTES } from "../config/limits";
 
 const schema = z.object({
-  path: z.string().describe("Ruta del archivo a crear, relativa a la raíz del proyecto."),
+  path: z
+    .string()
+    .describe("Ruta del archivo a crear, relativa a la raíz del proyecto."),
   content: z.string().describe("Contenido completo del archivo."),
   overwrite: z
     .boolean()
     .optional()
-    .describe("Permitir sobrescribir si el archivo ya existe (por defecto false)."),
+    .describe(
+      "Permitir sobrescribir si el archivo ya existe (por defecto false).",
+    ),
 });
 
 export const writeFileTool: Tool<z.infer<typeof schema>> = {

@@ -12,11 +12,16 @@ import { subprocessEnv } from "./proc-env";
 import { MAX_COMMAND_MS, MAX_COMMAND_OUTPUT_BYTES } from "../config/limits";
 
 const schema = z.object({
-  command: z.string().min(1).describe("Comando de shell a ejecutar (se corre con `sh -c`)."),
+  command: z
+    .string()
+    .min(1)
+    .describe("Comando de shell a ejecutar (se corre con `sh -c`)."),
   cwd: z
     .string()
     .optional()
-    .describe('Directorio de trabajo, relativo a la raíz del proyecto. Por defecto "." (la raíz).'),
+    .describe(
+      'Directorio de trabajo, relativo a la raíz del proyecto. Por defecto "." (la raíz).',
+    ),
 });
 
 export const runCommandTool: Tool<z.infer<typeof schema>> = {
@@ -33,13 +38,19 @@ export const runCommandTool: Tool<z.infer<typeof schema>> = {
     try {
       cwdAbs = resolveWithinProject(cwd && cwd.trim() ? cwd : ".", ctx);
     } catch (err) {
-      return { output: `cwd inválido: ${(err as Error).message}`, isError: true };
+      return {
+        output: `cwd inválido: ${(err as Error).message}`,
+        isError: true,
+      };
     }
 
     // Gate de confirmación humana. Sin ctx.confirm ⇒ denegado por seguridad.
     const approved = ctx.confirm ? await ctx.confirm({ command, cwd }) : false;
     if (!approved) {
-      return { output: "El usuario rechazó ejecutar el comando.", isError: true };
+      return {
+        output: "El usuario rechazó ejecutar el comando.",
+        isError: true,
+      };
     }
 
     return execShell(command, cwdAbs);
@@ -72,8 +83,12 @@ function execShell(command: string, cwd: string): Promise<ToolResult> {
 
     const finish = (header: string, isError: boolean) => {
       clearTimeout(timer);
-      const out = chunks.length ? Buffer.concat(chunks).toString("utf8") : "(sin salida)";
-      const tail = capped ? `\n… (salida truncada a ${MAX_COMMAND_OUTPUT_BYTES} bytes)` : "";
+      const out = chunks.length
+        ? Buffer.concat(chunks).toString("utf8")
+        : "(sin salida)";
+      const tail = capped
+        ? `\n… (salida truncada a ${MAX_COMMAND_OUTPUT_BYTES} bytes)`
+        : "";
       resolve({ output: `${header}\n${out}${tail}`, isError });
     };
 
@@ -82,7 +97,10 @@ function execShell(command: string, cwd: string): Promise<ToolResult> {
     });
     child.on("close", (code, signal) => {
       if (signal === "SIGKILL") {
-        finish(`$ ${command}\n[timeout tras ${MAX_COMMAND_MS} ms; proceso terminado]`, true);
+        finish(
+          `$ ${command}\n[timeout tras ${MAX_COMMAND_MS} ms; proceso terminado]`,
+          true,
+        );
       } else {
         finish(`$ ${command}\n[exit ${code ?? "?"}]`, code !== 0);
       }

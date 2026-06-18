@@ -11,14 +11,19 @@ import { type Tool, type ToolResult } from "./types";
 import { MAX_SUBAGENTS_PER_CALL } from "../config/limits";
 
 const oneTask = z.object({
-  subagent_type: z.enum(["explore", "build"]).describe(
-    "explore: sólo lectura (read_file/list_dir/search), para investigar y resumir. " +
-      "build: lectura + escritura + run_command, para implementar una sub-tarea acotada.",
-  ),
-  description: z.string().min(1).describe(
-    "Instrucción AUTÓNOMA y completa para el subagente: qué investigar o hacer y " +
-      "qué devolver. El subagente NO ve la conversación del padre, sólo este texto.",
-  ),
+  subagent_type: z
+    .enum(["explore", "build"])
+    .describe(
+      "explore: sólo lectura (read_file/list_dir/search), para investigar y resumir. " +
+        "build: lectura + escritura + run_command, para implementar una sub-tarea acotada.",
+    ),
+  description: z
+    .string()
+    .min(1)
+    .describe(
+      "Instrucción AUTÓNOMA y completa para el subagente: qué investigar o hacer y " +
+        "qué devolver. El subagente NO ve la conversación del padre, sólo este texto.",
+    ),
 });
 
 const schema = z.object({
@@ -58,7 +63,11 @@ export const taskTool: Tool<z.infer<typeof schema>> = {
     // tool-call `task` que el loop emitió antes de invocarnos).
     const results = await Promise.all(
       tasks.map((t) =>
-        spawn({ subagentType: t.subagent_type, prompt: t.description, parentToolId: t.subagent_type }),
+        spawn({
+          subagentType: t.subagent_type,
+          prompt: t.description,
+          parentToolId: t.subagent_type,
+        }),
       ),
     );
 
@@ -68,6 +77,9 @@ export const taskTool: Tool<z.infer<typeof schema>> = {
     });
 
     // isError sólo si TODOS fallan: si alguno trae resultado útil, el turno sigue.
-    return { output: blocks.join("\n\n"), isError: results.every((r) => r.isError) };
+    return {
+      output: blocks.join("\n\n"),
+      isError: results.every((r) => r.isError),
+    };
   },
 };

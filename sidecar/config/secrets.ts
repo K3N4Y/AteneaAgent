@@ -36,7 +36,10 @@ export function hasApiKey(providerId: string): boolean {
 }
 
 /** Setea o limpia el override en memoria para un proveedor. */
-export function setApiKeyOverride(providerId: string, key: string | undefined): void {
+export function setApiKeyOverride(
+  providerId: string,
+  key: string | undefined,
+): void {
   if (key && key.trim()) {
     KEY_OVERRIDES.set(providerId, key.trim());
   } else {

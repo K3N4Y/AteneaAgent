@@ -21,7 +21,8 @@ function summarizeInput(input: unknown): string {
       const types = tasks.map((t) => t.subagent_type ?? "?").join(", ");
       return `${tasks.length} subagente${tasks.length === 1 ? "" : "s"} (${types})`;
     }
-    if (typeof obj.input === "string") return obj.input.split("\n")[0].slice(0, 80);
+    if (typeof obj.input === "string")
+      return obj.input.split("\n")[0].slice(0, 80);
   }
   const s = JSON.stringify(input ?? {});
   return s.length > 80 ? s.slice(0, 80) + "…" : s;
@@ -62,7 +63,9 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
         <pre className="tool-summary">{call.output}</pre>
       )}
       {/* Errores siempre visibles, aunque la tarjeta esté plegada. */}
-      {call.done && call.isError && <pre className="tool-error">{call.output}</pre>}
+      {call.done && call.isError && (
+        <pre className="tool-error">{call.output}</pre>
+      )}
 
       {open && (
         <div className="tool-body">

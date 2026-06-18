@@ -26,7 +26,8 @@ export function ThinkingBlock({
   // Peek en vivo: mantener el scroll al fondo para mostrar lo más reciente.
   const peek = live && !open;
   useEffect(() => {
-    if (peek && bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    if (peek && bodyRef.current)
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [text, peek]);
 
   // Razonamiento-sin-respuesta: terminó (no live) y no hubo texto → mostrar todo.
@@ -38,11 +39,16 @@ export function ThinkingBlock({
     <div className="think-card">
       <button className="think-head" onClick={() => setOpen((o) => !o)}>
         <span className="think-badge">{live ? "💭" : "✓"}</span>
-        <span className="think-name">{live ? "Pensando…" : "Razonamiento"}</span>
+        <span className="think-name">
+          {live ? "Pensando…" : "Razonamiento"}
+        </span>
         <span className="tool-toggle">{showFull ? "▾" : "▸"}</span>
       </button>
       {showBody && (
-        <div ref={bodyRef} className={`think-body ${showFull ? "think-full" : "think-peek"}`}>
+        <div
+          ref={bodyRef}
+          className={`think-body ${showFull ? "think-full" : "think-peek"}`}
+        >
           {text}
         </div>
       )}

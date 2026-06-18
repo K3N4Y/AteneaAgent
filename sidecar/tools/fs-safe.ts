@@ -2,8 +2,22 @@
 // modelo se resuelve aquí y se valida que no escape del directorio: ni con
 // `../` (chequeo léxico) ni vía symlinks que apunten afuera (chequeo real).
 
-import { resolve, relative, isAbsolute, dirname, basename, sep } from "node:path";
-import { readFile, writeFile, mkdir, stat, realpath, readdir } from "node:fs/promises";
+import {
+  resolve,
+  relative,
+  isAbsolute,
+  dirname,
+  basename,
+  sep,
+} from "node:path";
+import {
+  readFile,
+  writeFile,
+  mkdir,
+  stat,
+  realpath,
+  readdir,
+} from "node:fs/promises";
 import type { Dirent } from "node:fs";
 
 import { ToolError, type ToolContext } from "./types";

@@ -4,9 +4,17 @@
 // refresco tras borrar.
 
 import { useState } from "react";
-import { listSessions, deleteSession, type StoredSession } from "../state/history";
+import {
+  listSessions,
+  deleteSession,
+  type StoredSession,
+} from "../state/history";
 import { useSession } from "../state/session";
-import { resumeSession, startNewSession, openProject } from "../transport/client";
+import {
+  resumeSession,
+  startNewSession,
+  openProject,
+} from "../transport/client";
 import { pickProjectDir } from "./ProjectPicker";
 
 function rel(ts: number): string {
@@ -61,7 +69,11 @@ function groupByProject(sessions: StoredSession[]): Group[] {
     const key = s.projectPath ?? "";
     let g = byPath.get(key);
     if (!g) {
-      g = { path: s.projectPath, label: folderName(s.projectPath) ?? "Sin proyecto", sessions: [] };
+      g = {
+        path: s.projectPath,
+        label: folderName(s.projectPath) ?? "Sin proyecto",
+        sessions: [],
+      };
       byPath.set(key, g);
       groups.push(g);
     }
@@ -80,7 +92,8 @@ export function HistoryList() {
   function toggle(key: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       saveCollapsed(next);
       return next;
     });
@@ -101,7 +114,9 @@ export function HistoryList() {
           + Proyecto
         </button>
       </div>
-      {groups.length === 0 && <div className="tree-empty">Sin sesiones guardadas.</div>}
+      {groups.length === 0 && (
+        <div className="tree-empty">Sin sesiones guardadas.</div>
+      )}
       {groups.map((g) => {
         const key = g.path ?? "";
         const isCollapsed = collapsed.has(key);
@@ -113,29 +128,40 @@ export function HistoryList() {
               aria-expanded={!isCollapsed}
               onClick={() => toggle(key)}
             >
-              <span className={`history-caret ${isCollapsed ? "collapsed" : ""}`}>▾</span>
+              <span
+                className={`history-caret ${isCollapsed ? "collapsed" : ""}`}
+              >
+                ▾
+              </span>
               <span className="history-group-name">{g.label}</span>
               <span className="history-group-count">{g.sessions.length}</span>
             </button>
             {!isCollapsed &&
               g.sessions.map((s) => (
-            <div key={s.id} className={`history-item ${s.id === sessionId ? "active" : ""}`}>
-              <button className="history-open" onClick={() => resumeSession(s)} title={s.title}>
-                <span className="history-title">{s.title}</span>
-                <span className="history-time">{rel(s.updatedAt)}</span>
-              </button>
-              <button
-                className="history-del"
-                title="Eliminar"
-                aria-label="Eliminar sesión"
-                onClick={() => {
-                  deleteSession(s.id);
-                  force((n) => n + 1);
-                }}
-              >
-                ×
-              </button>
-            </div>
+                <div
+                  key={s.id}
+                  className={`history-item ${s.id === sessionId ? "active" : ""}`}
+                >
+                  <button
+                    className="history-open"
+                    onClick={() => resumeSession(s)}
+                    title={s.title}
+                  >
+                    <span className="history-title">{s.title}</span>
+                    <span className="history-time">{rel(s.updatedAt)}</span>
+                  </button>
+                  <button
+                    className="history-del"
+                    title="Eliminar"
+                    aria-label="Eliminar sesión"
+                    onClick={() => {
+                      deleteSession(s.id);
+                      force((n) => n + 1);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
           </div>
         );

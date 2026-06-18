@@ -11,7 +11,9 @@ const schema = z.object({
   markdown: z
     .string()
     .min(1)
-    .describe("El plan completo en markdown: pasos ordenados, archivos a tocar y riesgos."),
+    .describe(
+      "El plan completo en markdown: pasos ordenados, archivos a tocar y riesgos.",
+    ),
 });
 
 export const submitPlanTool: Tool<z.infer<typeof schema>> = {
@@ -30,7 +32,8 @@ export const submitPlanTool: Tool<z.infer<typeof schema>> = {
     }
     ctx.onPlan(markdown);
     return {
-      output: "Plan presentado al usuario para aprobación. Terminá tu turno aquí.",
+      output:
+        "Plan presentado al usuario para aprobación. Terminá tu turno aquí.",
       isError: false,
     };
   },

@@ -25,7 +25,11 @@ export function LogsPanel({ onClose }: { onClose: () => void }) {
           <button className="logs-btn" onClick={clearLogs}>
             Limpiar
           </button>
-          <button className="logs-btn" onClick={onClose} aria-label="Cerrar logs">
+          <button
+            className="logs-btn"
+            onClick={onClose}
+            aria-label="Cerrar logs"
+          >
             ✕
           </button>
         </div>
@@ -33,7 +37,8 @@ export function LogsPanel({ onClose }: { onClose: () => void }) {
       <div className="logs-body">
         {logs.length === 0 ? (
           <div className="logs-empty">
-            Sin eventos todavía. Mandá un mensaje para ver el tráfico con el sidecar.
+            Sin eventos todavía. Mandá un mensaje para ver el tráfico con el
+            sidecar.
           </div>
         ) : (
           logs.map((l) => <LogRow key={l.id} log={l} />)

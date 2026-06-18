@@ -18,7 +18,11 @@ export function projectBasename(p?: string): string {
 export async function pickProjectDir(current?: string): Promise<string | null> {
   try {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const dir = await open({ directory: true, multiple: false, defaultPath: current });
+    const dir = await open({
+      directory: true,
+      multiple: false,
+      defaultPath: current,
+    });
     return typeof dir === "string" ? dir : null;
   } catch {
     const manual = window.prompt("Ruta absoluta del proyecto:", current ?? "");
@@ -30,7 +34,12 @@ export function ProjectPicker({ onClick }: { onClick: () => void }) {
   const projectPath = useSession((s) => s.projectPath);
 
   return (
-    <button type="button" className="project-pick" onClick={onClick} title={projectPath ?? "Elegir carpeta del proyecto"}>
+    <button
+      type="button"
+      className="project-pick"
+      onClick={onClick}
+      title={projectPath ?? "Elegir carpeta del proyecto"}
+    >
       <span className="project-glyph">📁</span>
       <span className="project-name">{projectBasename(projectPath)}</span>
     </button>

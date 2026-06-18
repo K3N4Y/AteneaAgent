@@ -87,7 +87,9 @@ export type Message =
     };
 
 /** Normaliza `thinking` a tramos. Tolera el string legacy de sesiones viejas. */
-export function thinkingSegments(thinking: ThinkingSegment[] | string | undefined): ThinkingSegment[] {
+export function thinkingSegments(
+  thinking: ThinkingSegment[] | string | undefined,
+): ThinkingSegment[] {
   if (!thinking) return [];
   if (typeof thinking === "string") return [{ text: thinking, afterTools: 0 }];
   return thinking;
@@ -155,7 +157,9 @@ interface SessionState {
 // Helpers para actualizar el ÚLTIMO mensaje del asistente de forma inmutable.
 function updateLastAssistant(
   messages: Message[],
-  fn: (m: Extract<Message, { role: "assistant" }>) => Extract<Message, { role: "assistant" }>,
+  fn: (
+    m: Extract<Message, { role: "assistant" }>,
+  ) => Extract<Message, { role: "assistant" }>,
 ): Message[] {
   const idx = lastAssistantIndex(messages);
   if (idx === -1) return messages;
@@ -191,7 +195,12 @@ export const useSession = create<SessionState>((set) => ({
     set((s) => (s.projectPath ? {} : { projectPath: cwd })),
 
   newSession: () =>
-    set({ messages: [], sessionId: crypto.randomUUID(), streaming: false, pendingPermission: undefined }),
+    set({
+      messages: [],
+      sessionId: crypto.randomUUID(),
+      streaming: false,
+      pendingPermission: undefined,
+    }),
 
   loadSession: (s) =>
     set((prev) => {
@@ -256,7 +265,10 @@ export const useSession = create<SessionState>((set) => ({
 
   appendAssistantDelta: (text) =>
     set((s) => ({
-      messages: updateLastAssistant(s.messages, (m) => ({ ...m, text: m.text + text })),
+      messages: updateLastAssistant(s.messages, (m) => ({
+        ...m,
+        text: m.text + text,
+      })),
     })),
 
   appendThinkingDelta: (text) =>
@@ -267,9 +279,14 @@ export const useSession = create<SessionState>((set) => ({
         // Tramo nuevo si no hay ninguno, o si entró una tool desde que empezó el
         // último: ese corte es el que separa "pensar → usar tool → volver a pensar".
         if (!last || last.afterTools !== m.toolCalls.length) {
-          return { ...m, thinking: [...segs, { text, afterTools: m.toolCalls.length }] };
+          return {
+            ...m,
+            thinking: [...segs, { text, afterTools: m.toolCalls.length }],
+          };
         }
-        const merged = segs.slice(0, -1).concat({ ...last, text: last.text + text });
+        const merged = segs
+          .slice(0, -1)
+          .concat({ ...last, text: last.text + text });
         return { ...m, thinking: merged };
       }),
     })),
@@ -279,7 +296,10 @@ export const useSession = create<SessionState>((set) => ({
       messages: updateLastAssistant(s.messages, (m) => ({
         ...m,
         // textOffset ancla la tarjeta al punto actual del texto (orden cronológico).
-        toolCalls: [...m.toolCalls, { id, name, input, done: false, textOffset: m.text.length }],
+        toolCalls: [
+          ...m.toolCalls,
+          { id, name, input, done: false, textOffset: m.text.length },
+        ],
       })),
     })),
 
@@ -299,7 +319,10 @@ export const useSession = create<SessionState>((set) => ({
         // El `task` en curso es la última tool-call `task` sin terminar.
         let idx = -1;
         for (let i = m.toolCalls.length - 1; i >= 0; i--) {
-          if (m.toolCalls[i].name === "task" && !m.toolCalls[i].done) { idx = i; break; }
+          if (m.toolCalls[i].name === "task" && !m.toolCalls[i].done) {
+            idx = i;
+            break;
+          }
         }
         if (idx === -1) return m;
         const copy = m.toolCalls.slice();

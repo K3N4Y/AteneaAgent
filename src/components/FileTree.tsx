@@ -16,15 +16,27 @@ function join(dir: string, name: string): string {
 function fileIcon(name: string): [glyph: string, color: string] {
   const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
   const map: Record<string, [string, string]> = {
-    ts: ["TS", "#3178c6"], tsx: ["TS", "#3178c6"],
-    js: ["JS", "#f0db4f"], jsx: ["JS", "#f0db4f"], mjs: ["JS", "#f0db4f"], cjs: ["JS", "#f0db4f"],
+    ts: ["TS", "#3178c6"],
+    tsx: ["TS", "#3178c6"],
+    js: ["JS", "#f0db4f"],
+    jsx: ["JS", "#f0db4f"],
+    mjs: ["JS", "#f0db4f"],
+    cjs: ["JS", "#f0db4f"],
     json: ["{}", "#f1502f"],
-    html: ["<>", "#e44d26"], htm: ["<>", "#e44d26"],
-    css: ["#", "#42a5f5"], scss: ["#", "#cf649a"],
-    md: ["i", "#42a5f5"], markdown: ["i", "#42a5f5"],
-    yml: ["!", "#cb4b16"], yaml: ["!", "#cb4b16"], toml: ["⚙", "#9e9e9e"],
+    html: ["<>", "#e44d26"],
+    htm: ["<>", "#e44d26"],
+    css: ["#", "#42a5f5"],
+    scss: ["#", "#cf649a"],
+    md: ["i", "#42a5f5"],
+    markdown: ["i", "#42a5f5"],
+    yml: ["!", "#cb4b16"],
+    yaml: ["!", "#cb4b16"],
+    toml: ["⚙", "#9e9e9e"],
     rs: ["RS", "#dea584"],
-    svg: ["▢", "#ffb13b"], png: ["▢", "#a074c4"], jpg: ["▢", "#a074c4"], jpeg: ["▢", "#a074c4"],
+    svg: ["▢", "#ffb13b"],
+    png: ["▢", "#a074c4"],
+    jpg: ["▢", "#a074c4"],
+    jpeg: ["▢", "#a074c4"],
     gitignore: ["◆", "#e8654f"],
   };
   return map[ext] ?? ["▢", "#7d8590"];
@@ -49,9 +61,17 @@ function TreeNode({ entry, path }: { entry: DirEntry; path: string }) {
 
   return (
     <div className="tree-node">
-      <button className={`tree-row ${entry.isDir ? "is-dir" : "is-file"}`} onClick={onClick} title={path}>
-        <span className="tree-twist">{entry.isDir ? (open ? "▾" : "▸") : ""}</span>
-        <span className="tree-icon" style={{ color }}>{glyph}</span>
+      <button
+        className={`tree-row ${entry.isDir ? "is-dir" : "is-file"}`}
+        onClick={onClick}
+        title={path}
+      >
+        <span className="tree-twist">
+          {entry.isDir ? (open ? "▾" : "▸") : ""}
+        </span>
+        <span className="tree-icon" style={{ color }}>
+          {glyph}
+        </span>
         <span className="tree-label">{entry.name}</span>
       </button>
       {open && children && (
@@ -85,7 +105,8 @@ export function FileTree() {
 
   if (!projectPath) return <div className="tree-empty">Elegí un proyecto.</div>;
   if (roots === null) return <div className="tree-empty">Cargando…</div>;
-  if (roots.length === 0) return <div className="tree-empty">Sin archivos.</div>;
+  if (roots.length === 0)
+    return <div className="tree-empty">Sin archivos.</div>;
 
   return (
     <div className="file-tree">

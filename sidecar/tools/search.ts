@@ -8,7 +8,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { type Tool, type ToolResult } from "./types";
-import { secureResolveWithinProject, readdirWithinProject } from "./fs-safe";
+import { secureResolveWithinProject } from "./fs-safe";
 import {
   MAX_SEARCH_RESULTS,
   MAX_SEARCH_FILE_BYTES,
@@ -28,13 +28,24 @@ const IGNORE_DIRS = new Set([
 ]);
 
 const schema = z.object({
-  query: z.string().min(1).describe("Texto a buscar (subcadena, o regex si regex:true)."),
+  query: z
+    .string()
+    .min(1)
+    .describe("Texto a buscar (subcadena, o regex si regex:true)."),
   path: z
     .string()
     .optional()
-    .describe('Subdirectorio donde buscar, relativo a la raíz. Por defecto "." (todo el proyecto).'),
-  regex: z.boolean().optional().describe("Interpretar query como expresión regular (por defecto false)."),
-  ignoreCase: z.boolean().optional().describe("Ignorar mayúsculas/minúsculas (por defecto false)."),
+    .describe(
+      'Subdirectorio donde buscar, relativo a la raíz. Por defecto "." (todo el proyecto).',
+    ),
+  regex: z
+    .boolean()
+    .optional()
+    .describe("Interpretar query como expresión regular (por defecto false)."),
+  ignoreCase: z
+    .boolean()
+    .optional()
+    .describe("Ignorar mayúsculas/minúsculas (por defecto false)."),
 });
 
 export const searchTool: Tool<z.infer<typeof schema>> = {
@@ -51,7 +62,10 @@ export const searchTool: Tool<z.infer<typeof schema>> = {
         const re = new RegExp(query, ignoreCase ? "i" : "");
         matcher = (line) => re.test(line);
       } catch (err) {
-        return { output: `Regex inválida: ${(err as Error).message}`, isError: true };
+        return {
+          output: `Regex inválida: ${(err as Error).message}`,
+          isError: true,
+        };
       }
     } else {
       const needle = ignoreCase ? query.toLowerCase() : query;
@@ -66,7 +80,10 @@ export const searchTool: Tool<z.infer<typeof schema>> = {
     try {
       startAbs = await secureResolveWithinProject(start, ctx);
     } catch (err) {
-      return { output: `Ruta inválida ${start}: ${(err as Error).message}`, isError: true };
+      return {
+        output: `Ruta inválida ${start}: ${(err as Error).message}`,
+        isError: true,
+      };
     }
 
     const results: string[] = [];
@@ -100,7 +117,10 @@ export const searchTool: Tool<z.infer<typeof schema>> = {
       }
     };
 
-    const scanFile = async (absFile: string, relFile: string): Promise<void> => {
+    const scanFile = async (
+      absFile: string,
+      relFile: string,
+    ): Promise<void> => {
       try {
         const st = await stat(absFile);
         if (st.size > MAX_SEARCH_FILE_BYTES) return;
@@ -125,16 +145,25 @@ export const searchTool: Tool<z.infer<typeof schema>> = {
     try {
       const st = await stat(startAbs);
       if (st.isFile()) {
-        await scanFile(startAbs, relative(root, startAbs).split("\\").join("/"));
+        await scanFile(
+          startAbs,
+          relative(root, startAbs).split("\\").join("/"),
+        );
       } else {
         await walk(startAbs, start === "." ? "" : start);
       }
     } catch (err) {
-      return { output: `No se pudo buscar en ${start}: ${(err as Error).message}`, isError: true };
+      return {
+        output: `No se pudo buscar en ${start}: ${(err as Error).message}`,
+        isError: true,
+      };
     }
 
     if (results.length === 0) {
-      return { output: `Sin coincidencias para ${JSON.stringify(query)}.`, isError: false };
+      return {
+        output: `Sin coincidencias para ${JSON.stringify(query)}.`,
+        isError: false,
+      };
     }
     const note = truncated
       ? `\n… (truncado en ${results.length} coincidencias; afiná la búsqueda)`

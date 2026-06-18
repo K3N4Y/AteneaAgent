@@ -23,10 +23,18 @@ function MarkdownChunk({ text }: { text: string }) {
 
 /** Ancla cronológica de la tool, acotada al largo del texto (legacy → al final). */
 function offsetOf(call: { textOffset?: number }, max: number): number {
-  return typeof call.textOffset === "number" ? Math.min(call.textOffset, max) : max;
+  return typeof call.textOffset === "number"
+    ? Math.min(call.textOffset, max)
+    : max;
 }
 
-export function MessageBubble({ message, streaming }: { message: Message; streaming: boolean }) {
+export function MessageBubble({
+  message,
+  streaming,
+}: {
+  message: Message;
+  streaming: boolean;
+}) {
   const isAssistant = message.role === "assistant";
   const fullText = isAssistant ? message.text : "";
   const calls = isAssistant ? message.toolCalls : [];
@@ -34,7 +42,9 @@ export function MessageBubble({ message, streaming }: { message: Message; stream
   // El texto se parte en los puntos donde se invocó cada tool. El último tramo
   // (lo que se sigue escribiendo tras la última tool) es el "vivo": ese se anima
   // con useSmoothText; lo anterior ya está fijado y se muestra de una.
-  const lastOffset = calls.length ? offsetOf(calls[calls.length - 1], fullText.length) : 0;
+  const lastOffset = calls.length
+    ? offsetOf(calls[calls.length - 1], fullText.length)
+    : 0;
   // useSmoothText incondicional (regla de hooks). En user le pasamos "".
   const tail = useSmoothText(isAssistant ? fullText.slice(lastOffset) : "");
 
@@ -50,7 +60,8 @@ export function MessageBubble({ message, streaming }: { message: Message; stream
   // terminal puede latir (💭 mientras streamea) o, si el turno cerró sin texto,
   // quedar abierto (razonamiento-como-respuesta). El resto colapsa a su cabecera.
   function renderThinking(seg: ThinkingSegment, key: string): ReactNode {
-    const terminal = seg === lastSeg && seg.afterTools === calls.length && !rawTail;
+    const terminal =
+      seg === lastSeg && seg.afterTools === calls.length && !rawTail;
     return (
       <ThinkingBlock
         key={key}

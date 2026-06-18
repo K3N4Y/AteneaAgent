@@ -12,7 +12,9 @@ const schema = z.object({
   path: z
     .string()
     .optional()
-    .describe('Directorio a listar, relativo a la raíz del proyecto. Por defecto "." (la raíz).'),
+    .describe(
+      'Directorio a listar, relativo a la raíz del proyecto. Por defecto "." (la raíz).',
+    ),
 });
 
 export const listDirTool: Tool<z.infer<typeof schema>> = {
@@ -28,7 +30,10 @@ export const listDirTool: Tool<z.infer<typeof schema>> = {
     try {
       entries = await readdirWithinProject(dir, ctx);
     } catch (err) {
-      return { output: `No se pudo listar ${dir}: ${(err as Error).message}`, isError: true };
+      return {
+        output: `No se pudo listar ${dir}: ${(err as Error).message}`,
+        isError: true,
+      };
     }
 
     // Carpetas primero, después archivos; alfabético dentro de cada grupo.
@@ -43,7 +48,8 @@ export const listDirTool: Tool<z.infer<typeof schema>> = {
     const body = shown.map((e) => (e.isDir ? `${e.name}/` : e.name)).join("\n");
 
     const header = `${dir} (${names.length} entradas${truncated ? `, mostrando ${MAX_LIST_ENTRIES}` : ""})`;
-    const out = names.length === 0 ? `${header}\n(vacío)` : `${header}\n${body}`;
+    const out =
+      names.length === 0 ? `${header}\n(vacío)` : `${header}\n${body}`;
     return { output: out, isError: false };
   },
 };

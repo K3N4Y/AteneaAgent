@@ -23,20 +23,35 @@ function check(name: string, cond: boolean, extra = "") {
 
 async function main() {
   console.log("secrets:");
-  check("env var: getApiKey devuelve el valor de la env", getApiKey("opencode") === "env-key-value");
+  check(
+    "env var: getApiKey devuelve el valor de la env",
+    getApiKey("opencode") === "env-key-value",
+  );
   check("env var: hasApiKey es true", hasApiKey("opencode"));
 
   setApiKeyOverride("opencode", "override-key-value");
-  check("override: pisa la env var", getApiKey("opencode") === "override-key-value");
+  check(
+    "override: pisa la env var",
+    getApiKey("opencode") === "override-key-value",
+  );
   check("override: hasApiKey sigue true", hasApiKey("opencode"));
 
   setApiKeyOverride("opencode", "");
-  check("override vacío: vuelve a la env var", getApiKey("opencode") === "env-key-value");
+  check(
+    "override vacío: vuelve a la env var",
+    getApiKey("opencode") === "env-key-value",
+  );
 
   setApiKeyOverride("opencode", "  spaced-key  ");
-  check("override con whitespace se trimea", getApiKey("opencode") === "spaced-key");
+  check(
+    "override con whitespace se trimea",
+    getApiKey("opencode") === "spaced-key",
+  );
 
-  check("providerId desconocido: getApiKey undefined", getApiKey("nope-123") === undefined);
+  check(
+    "providerId desconocido: getApiKey undefined",
+    getApiKey("nope-123") === undefined,
+  );
   check("providerId desconocido: hasApiKey false", !hasApiKey("nope-123"));
 
   console.log("\nprovider:");
@@ -49,10 +64,16 @@ async function main() {
 
   p1.setApiKey("new-runtime-key");
   // setApiKey ya actualiza el override internamente, pero por las dudas:
-  check("tras setApiKey(key), getApiKey refleja la nueva key", getApiKey("opencode") === "new-runtime-key");
+  check(
+    "tras setApiKey(key), getApiKey refleja la nueva key",
+    getApiKey("opencode") === "new-runtime-key",
+  );
 
   p1.setApiKey(undefined);
-  check("setApiKey(undefined) vuelve a la env var", getApiKey("opencode") === "env-key-value");
+  check(
+    "setApiKey(undefined) vuelve a la env var",
+    getApiKey("opencode") === "env-key-value",
+  );
 
   const p2 = new OpenAICompatibleProvider({
     id: "noenv",
@@ -62,7 +83,10 @@ async function main() {
   // Sin key, listModels va directo al fallback (no pega a /models). Sin
   // modelsFallbackUrl configurado, devuelve []. La señal esperada: array.
   const models = await p2.listModels();
-  check("provider sin key: listModels devuelve [] (fallback)", Array.isArray(models) && models.length === 0);
+  check(
+    "provider sin key: listModels devuelve [] (fallback)",
+    Array.isArray(models) && models.length === 0,
+  );
 }
 
 main()

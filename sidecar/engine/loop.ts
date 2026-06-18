@@ -55,7 +55,12 @@ export async function runAgent(opts: RunOptions, emit: EmitFn): Promise<void> {
         emit({ type: "thinking_delta", text: ev.text });
       } else if (ev.type === "tool_call") {
         calls.push({ id: ev.id, name: ev.name, input: ev.input });
-        assistantParts.push({ type: "tool_use", id: ev.id, name: ev.name, input: ev.input });
+        assistantParts.push({
+          type: "tool_use",
+          id: ev.id,
+          name: ev.name,
+          input: ev.input,
+        });
       } else if (ev.type === "done") {
         usage = ev.usage;
       } else if (ev.type === "error") {
@@ -90,7 +95,12 @@ export async function runAgent(opts: RunOptions, emit: EmitFn): Promise<void> {
     // Ejecutar las tools pedidas y devolver los resultados como mensaje user.
     const resultParts: ContentPart[] = [];
     for (const call of calls) {
-      emit({ type: "tool_call", id: call.id, name: call.name, input: call.input });
+      emit({
+        type: "tool_call",
+        id: call.id,
+        name: call.name,
+        input: call.input,
+      });
       const { output, isError } = await runTool(opts.tools, call, opts.ctx);
       // ponytail: read_file vuelca el archivo entero; el LLM lo necesita pero el
       // frontend sólo muestra qué se leyó. Recortamos sólo el evento de UI.
@@ -98,8 +108,19 @@ export async function runAgent(opts: RunOptions, emit: EmitFn): Promise<void> {
         call.name === "read_file" && !isError
           ? `Leído ${(call.input as { path?: string })?.path ?? ""}`.trim()
           : output;
-      emit({ type: "tool_result", id: call.id, name: call.name, output: uiOutput, isError });
-      resultParts.push({ type: "tool_result", toolUseId: call.id, output, isError });
+      emit({
+        type: "tool_result",
+        id: call.id,
+        name: call.name,
+        output: uiOutput,
+        isError,
+      });
+      resultParts.push({
+        type: "tool_result",
+        toolUseId: call.id,
+        output,
+        isError,
+      });
     }
     messages.push({ role: "user", content: resultParts });
 
@@ -157,6 +178,9 @@ async function runTool(
     return await tool.run(parsed.data, ctx);
   } catch (err) {
     // Un throw inesperado en la tool se reporta como resultado, no mata el loop.
-    return { output: `Error en ${call.name}: ${(err as Error).message}`, isError: true };
+    return {
+      output: `Error en ${call.name}: ${(err as Error).message}`,
+      isError: true,
+    };
   }
 }

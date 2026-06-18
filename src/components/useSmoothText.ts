@@ -25,7 +25,8 @@ export function useSmoothText(target: string): string {
   // en vuelo y el siguiente run reprograma desde idxRef. Sin refs-guard que se
   // traben en el doble-montaje de StrictMode.
   useEffect(() => {
-    if (target.length < idxRef.current) {     // target más corto (mensaje nuevo/reset) → saltar
+    if (target.length < idxRef.current) {
+      // target más corto (mensaje nuevo/reset) → saltar
       idxRef.current = target.length;
       setShown(target);
     }

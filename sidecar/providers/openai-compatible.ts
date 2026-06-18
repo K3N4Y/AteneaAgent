@@ -138,7 +138,8 @@ export class OpenAICompatibleProvider implements LlmProvider {
         }
         // Razonamiento: no está en el tipo de OpenAI; los gateways lo exponen
         // como `reasoning_content` (DeepSeek) o `reasoning` (OpenRouter).
-        const reasoning = (delta as any)?.reasoning_content ?? (delta as any)?.reasoning;
+        const reasoning =
+          (delta as any)?.reasoning_content ?? (delta as any)?.reasoning;
         if (reasoning) {
           yield { type: "thinking_delta", text: reasoning };
         }
@@ -187,7 +188,9 @@ export class OpenAICompatibleProvider implements LlmProvider {
 
 // ── Traducción de tipos normalizados → formato OpenAI ───────────────────────
 
-function toOpenAITool(spec: ToolSpec): OpenAI.Chat.Completions.ChatCompletionTool {
+function toOpenAITool(
+  spec: ToolSpec,
+): OpenAI.Chat.Completions.ChatCompletionTool {
   return {
     type: "function",
     function: {
@@ -225,7 +228,10 @@ function toOpenAIMessages(
         msg.tool_calls = toolUses.map((tu) => ({
           id: tu.id,
           type: "function",
-          function: { name: tu.name, arguments: JSON.stringify(tu.input ?? {}) },
+          function: {
+            name: tu.name,
+            arguments: JSON.stringify(tu.input ?? {}),
+          },
         }));
       }
       out.push(msg);

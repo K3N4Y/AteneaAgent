@@ -6,7 +6,11 @@ import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
 import type { ChildProcess } from "node:child_process";
 
-import { registerBuiltinProviders, getProvider, listProviderIds } from "./providers/registry";
+import {
+  registerBuiltinProviders,
+  getProvider,
+  listProviderIds,
+} from "./providers/registry";
 import { defaultProviderModel } from "./config/models";
 import { hasApiKey, missingKeyMessage } from "./config/secrets";
 import { SessionStore } from "./session/store";
@@ -21,10 +25,19 @@ import type { LlmMessage } from "./providers/types";
 import type { DirEntry, EngineEvent, IncomingMessage } from "./engine/events";
 
 // Ruido que el árbol de archivos oculta (el agente sí lo ve vía list_dir).
-const TREE_IGNORE = new Set([".git", "node_modules", "target", "dist", ".DS_Store"]);
+const TREE_IGNORE = new Set([
+  ".git",
+  "node_modules",
+  "target",
+  "dist",
+  ".DS_Store",
+]);
 
 /** Lista un directorio dentro de un proyecto para el árbol (carpetas primero). */
-async function listDirForTree(projectRoot: string, path: string): Promise<DirEntry[]> {
+async function listDirForTree(
+  projectRoot: string,
+  path: string,
+): Promise<DirEntry[]> {
   const ents = await readdirWithinProject(path, {
     projectRoot,
     snapshots: new SnapshotStore(),
@@ -32,7 +45,9 @@ async function listDirForTree(projectRoot: string, path: string): Promise<DirEnt
   return ents
     .filter((e) => !TREE_IGNORE.has(e.name))
     .map((e) => ({ name: e.name, isDir: e.isDirectory() }))
-    .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
+    .sort((a, b) =>
+      a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1,
+    )
     .slice(0, MAX_LIST_ENTRIES);
 }
 
@@ -74,8 +89,14 @@ const killAllApps = () => {
   for (const c of allApps) killProcessTree(c);
   allApps.clear();
 };
-process.on("SIGTERM", () => { killAllApps(); process.exit(0); });
-process.on("SIGINT", () => { killAllApps(); process.exit(0); });
+process.on("SIGTERM", () => {
+  killAllApps();
+  process.exit(0);
+});
+process.on("SIGINT", () => {
+  killAllApps();
+  process.exit(0);
+});
 
 // Si la cáscara que nos lanzó muere (Ctrl-C, crash), nos autoterminamos para no
 // quedar huérfanos ocupando el puerto. La cáscara nos pasa su PID por env.
@@ -86,7 +107,9 @@ const wss = new WebSocketServer({ host: HOST, port: PORT });
 wss.on("listening", () => {
   console.log(`[sidecar] escuchando en ws://${HOST}:${PORT}`);
   console.log(`[sidecar] proveedor=${activeProviderId} modelo=${activeModel}`);
-  console.log(`[sidecar] proveedores disponibles: ${listProviderIds().join(", ")}`);
+  console.log(
+    `[sidecar] proveedores disponibles: ${listProviderIds().join(", ")}`,
+  );
 });
 
 function watchParent(): void {
@@ -125,7 +148,12 @@ wss.on("connection", (ws: WebSocket) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
   };
 
-  emit({ type: "ready", providerId: activeProviderId, model: activeModel, cwd: process.cwd() });
+  emit({
+    type: "ready",
+    providerId: activeProviderId,
+    model: activeModel,
+    cwd: process.cwd(),
+  });
 
   ws.on("message", async (raw) => {
     let msg: IncomingMessage;
@@ -167,8 +195,14 @@ wss.on("connection", (ws: WebSocket) => {
       activeModel = msg.model;
       // ponytail: log mínimo para que la UI tenga señal visible en la terminal
       // de que el mensaje llegó (antes el handler era no-op en builds viejos).
-      console.log(`[sidecar] reconfigurado: provider=${activeProviderId} model=${activeModel} key=${msg.apiKey ? "***" : "(vacía)"}`);
-      emit({ type: "config_ok", providerId: activeProviderId, model: activeModel });
+      console.log(
+        `[sidecar] reconfigurado: provider=${activeProviderId} model=${activeModel} key=${msg.apiKey ? "***" : "(vacía)"}`,
+      );
+      emit({
+        type: "config_ok",
+        providerId: activeProviderId,
+        model: activeModel,
+      });
       return;
     }
 
@@ -178,9 +212,20 @@ wss.on("connection", (ws: WebSocket) => {
       const root = msg.projectPath || process.cwd();
       try {
         const entries = await listDirForTree(root, msg.path || ".");
-        emit({ type: "dir_listing", reqId: msg.reqId, path: msg.path, entries });
+        emit({
+          type: "dir_listing",
+          reqId: msg.reqId,
+          path: msg.path,
+          entries,
+        });
       } catch (err) {
-        emit({ type: "dir_listing", reqId: msg.reqId, path: msg.path, entries: [], error: (err as Error).message });
+        emit({
+          type: "dir_listing",
+          reqId: msg.reqId,
+          path: msg.path,
+          entries: [],
+          error: (err as Error).message,
+        });
       }
       return;
     }
@@ -190,7 +235,11 @@ wss.on("connection", (ws: WebSocket) => {
     // edit_file no se restauran — el modelo re-lee antes de editar (lo pide el
     // system prompt), que es el camino correcto tras un reinicio.
     if (msg.type === "load_history") {
-      const s = sessions.getOrCreate(sessionId, msg.projectPath || process.cwd(), "build");
+      const s = sessions.getOrCreate(
+        sessionId,
+        msg.projectPath || process.cwd(),
+        "build",
+      );
       s.messages = Array.isArray(msg.messages) ? msg.messages : [];
       s.snapshots = new SnapshotStore();
       return;
@@ -199,7 +248,10 @@ wss.on("connection", (ws: WebSocket) => {
     if (msg.type !== "user_message") return;
 
     if (running) {
-      emit({ type: "error", message: "El agente está ocupado con otro turno." });
+      emit({
+        type: "error",
+        message: "El agente está ocupado con otro turno.",
+      });
       return;
     }
 
@@ -216,7 +268,10 @@ wss.on("connection", (ws: WebSocket) => {
       return;
     }
 
-    session.messages.push({ role: "user", content: [{ type: "text", text: msg.text }] });
+    session.messages.push({
+      role: "user",
+      content: [{ type: "text", text: msg.text }],
+    });
 
     running = true;
     controller = new AbortController();
@@ -227,9 +282,17 @@ wss.on("connection", (ws: WebSocket) => {
         new Promise<boolean>((resolve) => {
           const id = randomUUID();
           pendingPermissions.set(id, resolve);
-          emit({ type: "permission_request", id, command: req.command, cwd: req.cwd });
+          emit({
+            type: "permission_request",
+            id,
+            command: req.command,
+            cwd: req.cwd,
+          });
         });
-      const trackProcess = (child: ChildProcess) => { apps.push(child); allApps.add(child); };
+      const trackProcess = (child: ChildProcess) => {
+        apps.push(child);
+        allApps.add(child);
+      };
       const base = {
         providerId: activeProviderId,
         model: activeModel,
@@ -258,10 +321,19 @@ wss.on("connection", (ws: WebSocket) => {
             // transcript del padre). Sólo esos 4 tipos llevan el campo; el resto
             // (done/error/etc.) pasa tal cual. De paso detectamos errores.
             let failed = false;
-            const STAMPED = new Set(["assistant_delta", "thinking_delta", "tool_call", "tool_result"]);
+            const STAMPED = new Set([
+              "assistant_delta",
+              "thinking_delta",
+              "tool_call",
+              "tool_result",
+            ]);
             const scopedEmit = (ev: EngineEvent) => {
               if (ev.type === "error") failed = true;
-              emit(STAMPED.has(ev.type) ? ({ ...ev, parentToolId } as EngineEvent) : ev);
+              emit(
+                STAMPED.has(ev.type)
+                  ? ({ ...ev, parentToolId } as EngineEvent)
+                  : ev,
+              );
             };
             await runAgent(
               {
@@ -293,13 +365,21 @@ wss.on("connection", (ws: WebSocket) => {
       // mensaje con `approve`, y RECIÉN ahí corremos la CONSTRUCCIÓN (prompt/tools
       // de `e2e`: write/edit/run/start_app) sobre el mismo historial. El resto de
       // los agentes corren su fase única directa.
-      const phase = msg.agentId === "e2e" && !msg.approve ? "plan" : msg.agentId;
+      const phase =
+        msg.agentId === "e2e" && !msg.approve ? "plan" : msg.agentId;
       await runAgent(
-        { ...base, system: systemPromptFor(phase), tools: toolsForAgent(phase) },
+        {
+          ...base,
+          system: systemPromptFor(phase),
+          tools: toolsForAgent(phase),
+        },
         emit,
       );
     } catch (err) {
-      emit({ type: "error", message: `Fallo del motor: ${(err as Error).message}` });
+      emit({
+        type: "error",
+        message: `Fallo del motor: ${(err as Error).message}`,
+      });
     } finally {
       running = false;
       controller = undefined;

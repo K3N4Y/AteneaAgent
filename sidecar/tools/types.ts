@@ -75,10 +75,9 @@ export class ToolError extends Error {}
 export function toToolSpec(tool: Tool): ToolSpec {
   // Cast a `any`: con el genérico ZodType<I> la inferencia de zod-to-json-schema
   // recursa hasta TS2589. El resultado lo normalizamos a Record igual.
-  const json = zodToJsonSchema(tool.schema as any, { $refStrategy: "none" }) as Record<
-    string,
-    unknown
-  >;
+  const json = zodToJsonSchema(tool.schema as any, {
+    $refStrategy: "none",
+  }) as Record<string, unknown>;
   // OpenAI ignora $schema; lo quitamos para no ensuciar el parámetro.
   delete json.$schema;
   return {

@@ -3,7 +3,13 @@
 
 export function ChevronIcon() {
   return (
-    <svg className="icon" viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+    <svg
+      className="icon"
+      viewBox="0 0 16 16"
+      width="11"
+      height="11"
+      aria-hidden="true"
+    >
       <path
         d="M4 6l4 4 4-4"
         fill="none"

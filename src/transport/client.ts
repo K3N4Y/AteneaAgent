@@ -5,7 +5,12 @@
 import { useSession } from "../state/session";
 import type { Message } from "../state/session";
 import { saveSession, titleFor, type StoredSession } from "../state/history";
-import type { DirEntry, IncomingEvent, LlmMessage, OutgoingMessage } from "./protocol";
+import type {
+  DirEntry,
+  IncomingEvent,
+  LlmMessage,
+  OutgoingMessage,
+} from "./protocol";
 
 // Debe coincidir con el puerto por defecto del sidecar (sidecar/server.ts y la
 // cáscara Rust). Override con VITE_SIDECAR_PORT en dev si hiciera falta.
@@ -20,7 +25,10 @@ let dirSeq = 0;
 
 export function connectSidecar(): void {
   // Evita conexiones duplicadas (StrictMode monta dos veces en dev).
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+  if (
+    ws &&
+    (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)
+  ) {
     return;
   }
 
@@ -46,13 +54,19 @@ export function connectSidecar(): void {
 
   ws.onclose = (e) => {
     useSession.getState().setConnected(false);
-    logSys("info", `WebSocket cerrado (code=${e.code}${e.reason ? `, ${e.reason}` : ""})`);
+    logSys(
+      "info",
+      `WebSocket cerrado (code=${e.code}${e.reason ? `, ${e.reason}` : ""})`,
+    );
     scheduleReconnect();
   };
 
   ws.onerror = () => {
     // onclose se dispara a continuación y agenda el reintento.
-    logSys("error", "Error de WebSocket (¿el sidecar está arriba en el puerto 8137?)");
+    logSys(
+      "error",
+      "Error de WebSocket (¿el sidecar está arriba en el puerto 8137?)",
+    );
     ws?.close();
   };
 }
@@ -84,13 +98,26 @@ function logIncoming(ev: IncomingEvent): void {
       store.appendStreamLog("in", "thinking_delta", ev.text);
       return;
     case "ready":
-      store.pushLog({ dir: "in", level: "info", text: `ready · provider=${ev.providerId} model=${ev.model}` });
+      store.pushLog({
+        dir: "in",
+        level: "info",
+        text: `ready · provider=${ev.providerId} model=${ev.model}`,
+      });
       return;
     case "config_ok":
-      store.pushLog({ dir: "in", level: "info", text: `config_ok · provider=${ev.providerId} model=${ev.model}` });
+      store.pushLog({
+        dir: "in",
+        level: "info",
+        text: `config_ok · provider=${ev.providerId} model=${ev.model}`,
+      });
       return;
     case "tool_call":
-      store.pushLog({ dir: "in", level: "info", text: `tool_call · ${ev.name}`, detail: pretty(ev.input) });
+      store.pushLog({
+        dir: "in",
+        level: "info",
+        text: `tool_call · ${ev.name}`,
+        detail: pretty(ev.input),
+      });
       return;
     case "tool_result":
       store.pushLog({
@@ -109,13 +136,27 @@ function logIncoming(ev: IncomingEvent): void {
       });
       return;
     case "plan":
-      store.pushLog({ dir: "in", level: "info", text: `plan · ${ev.markdown.length} chars`, detail: ev.markdown.slice(0, 2000) });
+      store.pushLog({
+        dir: "in",
+        level: "info",
+        text: `plan · ${ev.markdown.length} chars`,
+        detail: ev.markdown.slice(0, 2000),
+      });
       return;
     case "done":
-      store.pushLog({ dir: "in", level: "info", text: "done", detail: ev.usage ? pretty(ev.usage) : undefined });
+      store.pushLog({
+        dir: "in",
+        level: "info",
+        text: "done",
+        detail: ev.usage ? pretty(ev.usage) : undefined,
+      });
       return;
     case "error":
-      store.pushLog({ dir: "in", level: "error", text: `error · ${ev.message}` });
+      store.pushLog({
+        dir: "in",
+        level: "error",
+        text: `error · ${ev.message}`,
+      });
       return;
   }
 }
@@ -205,7 +246,11 @@ function dispatch(event: IncomingEvent): void {
       s.resolveToolCall(event.id, event.output, event.isError);
       break;
     case "permission_request":
-      s.setPendingPermission({ id: event.id, command: event.command, cwd: event.cwd });
+      s.setPendingPermission({
+        id: event.id,
+        command: event.command,
+        cwd: event.cwd,
+      });
       break;
     case "dir_listing": {
       const resolve = pendingDirs.get(event.reqId);
@@ -239,7 +284,8 @@ function syncPersistedConfig(): void {
   const providerId = localStorage.getItem("myagent:provider");
   const model = localStorage.getItem("myagent:model");
   if (!providerId || !model) return;
-  const apiKey = localStorage.getItem(`myagent:apiKey:${providerId}`) ?? undefined;
+  const apiKey =
+    localStorage.getItem(`myagent:apiKey:${providerId}`) ?? undefined;
   send({ type: "set_config", providerId, model, apiKey });
 }
 
@@ -253,12 +299,21 @@ function send(msg: OutgoingMessage): void {
 
 /** Enviar un mensaje del usuario: actualiza el store y manda al sidecar. El flag
  * `approve` marca la aprobación del plan en el gate E2E (ver approvePlan). */
-export function sendUserMessage(text: string, opts?: { approve?: boolean }): void {
+export function sendUserMessage(
+  text: string,
+  opts?: { approve?: boolean },
+): void {
   const trimmed = text.trim();
   if (!trimmed) return;
   const { agentId, projectPath, startUserTurn } = useSession.getState();
   startUserTurn(trimmed);
-  send({ type: "user_message", text: trimmed, agentId, projectPath, approve: opts?.approve });
+  send({
+    type: "user_message",
+    text: trimmed,
+    agentId,
+    projectPath,
+    approve: opts?.approve,
+  });
   persistCurrent();
 }
 
@@ -267,7 +322,7 @@ export function requestDir(path: string): Promise<DirEntry[]> {
   const reqId = `d${++dirSeq}`;
   const projectPath = useSession.getState().projectPath;
   return new Promise((resolve) => {
-    if (!Boolean(ws && ws.readyState === WebSocket.OPEN)) {
+    if (!(ws && ws.readyState === WebSocket.OPEN)) {
       resolve([]);
       return;
     }
@@ -298,7 +353,11 @@ function persistCurrent(): void {
 /** Empieza una sesión nueva: limpia la UI y vacía el historial del sidecar. */
 export function startNewSession(): void {
   useSession.getState().newSession();
-  send({ type: "load_history", messages: [], projectPath: useSession.getState().projectPath });
+  send({
+    type: "load_history",
+    messages: [],
+    projectPath: useSession.getState().projectPath,
+  });
 }
 
 /** Cambia el proyecto de trabajo (persistido) y abre una sesión nueva en él. */
@@ -337,7 +396,13 @@ function toLlmHistory(messages: Message[]): LlmMessage[] {
     if (!m.text && done.length === 0) continue; // placeholder vacío o turno cortado
     const content: LlmMessage["content"] = [];
     if (m.text) content.push({ type: "text", text: m.text });
-    for (const t of done) content.push({ type: "tool_use", id: t.id, name: t.name, input: t.input });
+    for (const t of done)
+      content.push({
+        type: "tool_use",
+        id: t.id,
+        name: t.name,
+        input: t.input,
+      });
     out.push({ role: "assistant", content });
     if (done.length > 0) {
       out.push({
@@ -376,9 +441,12 @@ export function approvePlan(): void {
   const s = useSession.getState();
   s.approveLastPlan();
   if (s.agentId === "e2e") {
-    sendUserMessage("Aprobado: implementá el plan de punta a punta y dejá la app andando.", {
-      approve: true,
-    });
+    sendUserMessage(
+      "Aprobado: implementá el plan de punta a punta y dejá la app andando.",
+      {
+        approve: true,
+      },
+    );
   } else {
     s.setAgent("build");
     sendUserMessage("Implementá el plan aprobado, paso a paso.");
@@ -386,7 +454,11 @@ export function approvePlan(): void {
 }
 
 /** Reconfigura proveedor/modelo/key al vuelo. Persiste en localStorage. */
-export function sendSetConfig(providerId: string, model: string, apiKey: string): void {
+export function sendSetConfig(
+  providerId: string,
+  model: string,
+  apiKey: string,
+): void {
   localStorage.setItem("myagent:provider", providerId);
   localStorage.setItem("myagent:model", model);
   if (apiKey) {

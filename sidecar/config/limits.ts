@@ -43,7 +43,8 @@ export const MAX_COMMAND_OUTPUT_BYTES = 100_000; // ~100 KB
  * default (alineado con Claude Code / OpenCode); bajalo con MYAGENT_MAX_TURNS
  * si querés un presupuesto estricto. El anti-bucle real está una línea abajo.
  */
-export const MAX_TURNS = Number(process.env.MYAGENT_MAX_TURNS) || Number.MAX_SAFE_INTEGER;
+export const MAX_TURNS =
+  Number(process.env.MYAGENT_MAX_TURNS) || Number.MAX_SAFE_INTEGER;
 
 /** Repeticiones idénticas de tool-calls seguidas antes de cortar el bucle. */
 export const MAX_IDENTICAL_TOOL_TURNS = 3;

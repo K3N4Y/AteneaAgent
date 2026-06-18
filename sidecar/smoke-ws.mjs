@@ -7,7 +7,9 @@ const ws = new WebSocket(`ws://127.0.0.1:${port}`);
 const seen = [];
 
 ws.on("open", () => {
-  ws.send(JSON.stringify({ type: "user_message", text: "hola", agentId: "build" }));
+  ws.send(
+    JSON.stringify({ type: "user_message", text: "hola", agentId: "build" }),
+  );
 });
 ws.on("message", (raw) => {
   const ev = JSON.parse(raw.toString());
@@ -17,7 +19,11 @@ ws.on("message", (raw) => {
 
 setTimeout(() => {
   const ok = seen.includes("ready") && seen.includes("error");
-  console.log(ok ? "\nTRANSPORTE OK ✓ (ready + error sin key)" : "\nFALLO ✗ eventos: " + seen.join(","));
+  console.log(
+    ok
+      ? "\nTRANSPORTE OK ✓ (ready + error sin key)"
+      : "\nFALLO ✗ eventos: " + seen.join(","),
+  );
   ws.close();
   process.exit(ok ? 0 : 1);
 }, 2500);

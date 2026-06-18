@@ -11,7 +11,13 @@ export class SessionStore {
   getOrCreate(id: string, projectRoot: string, agentId: AgentId): Session {
     let s = this.sessions.get(id);
     if (!s) {
-      s = { id, agentId, projectRoot, messages: [], snapshots: new SnapshotStore() };
+      s = {
+        id,
+        agentId,
+        projectRoot,
+        messages: [],
+        snapshots: new SnapshotStore(),
+      };
       this.sessions.set(id, s);
     }
     return s;
