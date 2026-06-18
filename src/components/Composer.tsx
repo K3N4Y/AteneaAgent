@@ -3,7 +3,7 @@
 // accesos de adjuntar/voz (placeholders) más el botón de enviar a la derecha.
 // Bloquea el envío mientras el agente trabaja (streaming) o si no hay conexión.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "../state/session";
 import { sendUserMessage } from "../transport/client";
 import { AgentSwitcher } from "./AgentSwitcher";
@@ -14,8 +14,17 @@ export function Composer({ onOpenSettings }: { onOpenSettings: () => void }) {
   const streaming = useSession((s) => s.streaming);
   const connected = useSession((s) => s.connected);
   const model = useSession((s) => s.model);
+  const pendingInsert = useSession((s) => s.pendingInsert);
+  const consumeInsert = useSession((s) => s.consumeInsert);
   const disabled = streaming || !connected;
   const canSend = !disabled && text.trim().length > 0;
+
+  // Inserción desde el árbol de archivos: anexa el texto pedido y lo consume.
+  useEffect(() => {
+    if (!pendingInsert) return;
+    setText((t) => (t ? `${t} ${pendingInsert}` : pendingInsert));
+    consumeInsert();
+  }, [pendingInsert, consumeInsert]);
 
   const submit = () => {
     if (!canSend) return;

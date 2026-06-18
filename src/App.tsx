@@ -6,6 +6,8 @@ import { ChatPanel } from "./components/ChatPanel";
 import { Composer } from "./components/Composer";
 import { SettingsModal } from "./components/SettingsModal";
 import { LogsPanel } from "./components/LogsPanel";
+import { Sidebar } from "./components/Sidebar";
+import { ProjectPicker } from "./components/ProjectPicker";
 import "./App.css";
 
 function App() {
@@ -14,6 +16,7 @@ function App() {
   const logErrors = useSession((s) => s.logs.reduce((n, l) => n + (l.level === "error" ? 1 : 0), 0));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     connectSidecar();
@@ -23,6 +26,15 @@ function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">MyAgent</div>
+        <ProjectPicker />
+        <button
+          className={`icon-btn sidebar-toggle ${sidebarOpen ? "active" : ""}`}
+          onClick={() => setSidebarOpen((v) => !v)}
+          title="Mostrar u ocultar el panel lateral"
+          aria-label="Mostrar u ocultar el panel lateral"
+        >
+          ☰
+        </button>
         <button
           className={`icon-btn logs-toggle ${logsOpen ? "active" : ""}`}
           onClick={() => setLogsOpen((v) => !v)}
@@ -45,13 +57,20 @@ function App() {
           {connected ? model ?? "conectado" : "sin conexión"}
         </div>
       </header>
-      <main className="main">
-        <ChatPanel />
-      </main>
-      {logsOpen && <LogsPanel onClose={() => setLogsOpen(false)} />}
-      <footer className="bottombar">
-        <Composer onOpenSettings={() => setSettingsOpen(true)} />
-      </footer>
+      <div className="body">
+        {sidebarOpen && <Sidebar />}
+        <div className="content">
+          <main className="main">
+            <div className="chat-scroll">
+              <ChatPanel />
+            </div>
+          </main>
+          {logsOpen && <LogsPanel onClose={() => setLogsOpen(false)} />}
+          <footer className="bottombar">
+            <Composer onOpenSettings={() => setSettingsOpen(true)} />
+          </footer>
+        </div>
+      </div>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
