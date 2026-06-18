@@ -785,6 +785,53 @@ body {
   white-space: nowrap;
 }
 
+/* Modal de proyectos: lista de proyectos ya abiertos + abrir uno nuevo. */
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.project-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 10px;
+  font-size: 13.5px;
+  cursor: pointer;
+  text-align: left;
+}
+.project-row:hover {
+  background: var(--bg-3);
+}
+.project-row.active {
+  background: var(--bg-3);
+  border-color: var(--accent);
+}
+.project-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-row-count {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.project-open-new {
+  align-self: stretch;
+  text-align: center;
+}
+
 /* ── Sidebar (árbol de archivos + sesiones) ──────────────── */
 .sidebar {
   flex: 0 0 250px;
@@ -1001,9 +1048,50 @@ body {
   background: var(--bg);
   padding: 4px 16px 16px;
 }
-.composer {
+.composer-area {
   max-width: 820px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* Botón de proyecto arriba a la izquierda del composer. */
+.project-bar {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 320px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.project-bar:hover {
+  background: var(--bg-3);
+  border-color: #5c5c5c;
+}
+.project-bar-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Estado de bienvenida (sesión recién iniciada): el composer queda centrado. */
+.content.is-welcome {
+  justify-content: center;
+}
+.content.is-welcome .main {
+  flex: 0 0 auto;
+}
+.content.is-welcome .empty-hint {
+  margin-top: 0;
+}
+.composer {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1028,11 +1116,11 @@ body {
   border: 0;
   padding: 4px 4px 0;
   font-family: inherit;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.55;
   outline: none;
-  min-height: 52px;
-  max-height: 220px;
+  min-height: 96px;
+  max-height: 320px;
 }
 .composer-input::placeholder {
   color: var(--muted);

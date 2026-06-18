@@ -8,15 +8,19 @@ import { SettingsModal } from "./components/SettingsModal";
 import { LogsPanel } from "./components/LogsPanel";
 import { Sidebar } from "./components/Sidebar";
 import { ProjectPicker } from "./components/ProjectPicker";
+import { ProjectButton } from "./components/ProjectButton";
+import { ProjectModal } from "./components/ProjectModal";
 import "./App.css";
 
 function App() {
   const connected = useSession((s) => s.connected);
   const model = useSession((s) => s.model);
+  const empty = useSession((s) => s.messages.length === 0);
   const logErrors = useSession((s) => s.logs.reduce((n, l) => n + (l.level === "error" ? 1 : 0), 0));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [projectsOpen, setProjectsOpen] = useState(false);
 
   useEffect(() => {
     connectSidecar();
@@ -26,7 +30,7 @@ function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">MyAgent</div>
-        <ProjectPicker />
+        <ProjectPicker onClick={() => setProjectsOpen(true)} />
         <button
           className={`icon-btn sidebar-toggle ${sidebarOpen ? "active" : ""}`}
           onClick={() => setSidebarOpen((v) => !v)}
@@ -59,7 +63,7 @@ function App() {
       </header>
       <div className="body">
         {sidebarOpen && <Sidebar />}
-        <div className="content">
+        <div className={`content ${empty ? "is-welcome" : ""}`}>
           <main className="main">
             <div className="chat-scroll">
               <ChatPanel />
@@ -67,11 +71,15 @@ function App() {
           </main>
           {logsOpen && <LogsPanel onClose={() => setLogsOpen(false)} />}
           <footer className="bottombar">
-            <Composer onOpenSettings={() => setSettingsOpen(true)} />
+            <div className="composer-area">
+              <ProjectButton onClick={() => setProjectsOpen(true)} />
+              <Composer onOpenSettings={() => setSettingsOpen(true)} />
+            </div>
           </footer>
         </div>
       </div>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {projectsOpen && <ProjectModal onClose={() => setProjectsOpen(false)} />}
     </div>
   );
 }
