@@ -10,6 +10,12 @@ import { TerminalBlock } from "./TerminalBlock";
 const DIFF_TOOLS = new Set(["edit_file", "write_file"]);
 const TERMINAL_TOOLS = new Set(["run_command", "start_app"]);
 
+/** Tipo del subagente `i` de un `task`, leído del input (para etiquetar su conteo). */
+function subagentType(input: unknown, i: number): string {
+  const tasks = (input as { tasks?: { subagent_type?: string }[] })?.tasks;
+  return tasks?.[i]?.subagent_type ?? "?";
+}
+
 function summarizeInput(input: unknown): string {
   if (input && typeof input === "object") {
     const obj = input as Record<string, unknown>;
@@ -49,9 +55,19 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
         <span className="tool-badge">{badge}</span>
         <span className="tool-name">{call.name}</span>
         <span className="tool-arg">{summarizeInput(call.input)}</span>
-        {/* task: pasos que dieron los subagentes (el detalle vive en Logs). */}
-        {call.name === "task" && call.subSteps ? (
-          <span className="tool-arg">· {call.subSteps} pasos</span>
+        {/* task: pasos que dio CADA subagente por separado (detalle en Logs). */}
+        {call.name === "task" && call.subSteps && call.subSteps.length > 0 ? (
+          <span className="tool-substeps">
+            {call.subSteps.map((n, i) => (
+              <span
+                key={i}
+                className="tool-substep"
+                title={`Subagente ${i + 1} (${subagentType(call.input, i)}): ${n} paso${n === 1 ? "" : "s"}`}
+              >
+                {i + 1}·{subagentType(call.input, i)} {n}
+              </span>
+            ))}
+          </span>
         ) : null}
         <span className="tool-toggle">{open ? "▾" : "▸"}</span>
       </button>
