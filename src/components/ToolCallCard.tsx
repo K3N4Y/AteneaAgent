@@ -8,7 +8,7 @@ import { DiffView } from "./DiffView";
 import { TerminalBlock } from "./TerminalBlock";
 
 const DIFF_TOOLS = new Set(["edit_file", "write_file"]);
-const TERMINAL_TOOLS = new Set(["run_command"]);
+const TERMINAL_TOOLS = new Set(["run_command", "start_app"]);
 
 function summarizeInput(input: unknown): string {
   if (input && typeof input === "object") {

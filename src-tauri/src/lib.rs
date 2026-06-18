@@ -78,7 +78,22 @@ pub fn run() {
                     taken
                 };
                 if let Some(mut child) = child {
-                    eprintln!("[myagent] terminando sidecar (pid {})", child.id());
+                    let pid = child.id();
+                    eprintln!("[myagent] terminando sidecar (pid {pid})");
+                    #[cfg(unix)]
+                    {
+                        // SIGKILL seco no le da tiempo al sidecar de matar las
+                        // apps de larga duración (start_app). Le mandamos SIGTERM
+                        // y esperamos hasta 2s a que cierre solo.
+                        let _ = std::process::Command::new("kill")
+                            .arg("-TERM")
+                            .arg(pid.to_string())
+                            .status();
+                        for _ in 0..20 {
+                            if matches!(child.try_wait(), Ok(Some(_))) { break; }
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                        }
+                    }
                     let _ = child.kill();
                     let _ = child.wait();
                 }

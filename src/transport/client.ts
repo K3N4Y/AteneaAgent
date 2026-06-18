@@ -240,13 +240,14 @@ function send(msg: OutgoingMessage): void {
   logOutgoing(msg, open);
 }
 
-/** Enviar un mensaje del usuario: actualiza el store y manda al sidecar. */
-export function sendUserMessage(text: string): void {
+/** Enviar un mensaje del usuario: actualiza el store y manda al sidecar. El flag
+ * `approve` marca la aprobación del plan en el gate E2E (ver approvePlan). */
+export function sendUserMessage(text: string, opts?: { approve?: boolean }): void {
   const trimmed = text.trim();
   if (!trimmed) return;
   const { agentId, projectPath, startUserTurn } = useSession.getState();
   startUserTurn(trimmed);
-  send({ type: "user_message", text: trimmed, agentId, projectPath });
+  send({ type: "user_message", text: trimmed, agentId, projectPath, approve: opts?.approve });
   persistCurrent();
 }
 
@@ -348,15 +349,23 @@ export function respondPermission(id: string, approved: boolean): void {
 }
 
 /**
- * Aprobar el plan propuesto por el agente Plan: lo marca como aprobado, cambia
- * al agente Build y le pide implementarlo. El plan ya está en el historial de
- * la sesión, así que Build lo ve como contexto.
+ * Aprobar el plan propuesto. El plan ya está en el historial de la sesión, así
+ * que la fase de construcción lo ve como contexto.
+ * - E2E: NO cambia de agente (seguimos en E2E); reenvía el mensaje con `approve`
+ *   para disparar la fase de CONSTRUCCIÓN del mismo flujo (gate humano).
+ * - Plan: conmuta al agente Build y le pide implementar.
  */
 export function approvePlan(): void {
   const s = useSession.getState();
   s.approveLastPlan();
-  s.setAgent("build");
-  sendUserMessage("Implementá el plan aprobado, paso a paso.");
+  if (s.agentId === "e2e") {
+    sendUserMessage("Aprobado: implementá el plan de punta a punta y dejá la app andando.", {
+      approve: true,
+    });
+  } else {
+    s.setAgent("build");
+    sendUserMessage("Implementá el plan aprobado, paso a paso.");
+  }
 }
 
 /** Reconfigura proveedor/modelo/key al vuelo. Persiste en localStorage. */

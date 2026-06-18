@@ -39,7 +39,7 @@ export type IncomingEvent =
 
 // Mensajes que la UI envía AL motor.
 export type OutgoingMessage =
-  | { type: "user_message"; text: string; agentId: AgentId; projectPath?: string }
+  | { type: "user_message"; text: string; agentId: AgentId; projectPath?: string; approve?: boolean }
   | { type: "abort" }
   | { type: "set_config"; providerId: string; model: string; apiKey?: string }
   | { type: "permission_response"; id: string; approved: boolean }
