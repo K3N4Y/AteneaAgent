@@ -220,7 +220,7 @@ function dispatch(event: IncomingEvent): void {
   if (parentToolId !== undefined) {
     if (event.type === "tool_call") {
       const index = Number(parentToolId);
-      s.bumpSubStep(Number.isFinite(index) ? index : 0);
+      s.bumpSubStep(Number.isInteger(index) && index >= 0 ? index : 0);
     }
     return;
   }
