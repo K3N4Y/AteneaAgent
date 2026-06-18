@@ -9,10 +9,29 @@ import { registerBuiltinProviders, getProvider, listProviderIds } from "./provid
 import { defaultProviderModel } from "./config/models";
 import { hasApiKey, missingKeyMessage } from "./config/secrets";
 import { SessionStore } from "./session/store";
+import { SnapshotStore } from "./edit/hashline/snapshot-store";
+import { readdirWithinProject } from "./tools/fs-safe";
+import { MAX_LIST_ENTRIES } from "./config/limits";
 import { toolsForAgent } from "./tools/registry";
 import { systemPromptFor } from "./engine/agents";
 import { runAgent } from "./engine/loop";
-import type { EngineEvent, IncomingMessage } from "./engine/events";
+import type { DirEntry, EngineEvent, IncomingMessage } from "./engine/events";
+
+// Ruido que el árbol de archivos oculta (el agente sí lo ve vía list_dir).
+const TREE_IGNORE = new Set([".git", "node_modules", "target", "dist", ".DS_Store"]);
+
+/** Lista un directorio dentro de un proyecto para el árbol (carpetas primero). */
+async function listDirForTree(projectRoot: string, path: string): Promise<DirEntry[]> {
+  const ents = await readdirWithinProject(path, {
+    projectRoot,
+    snapshots: new SnapshotStore(),
+  });
+  return ents
+    .filter((e) => !TREE_IGNORE.has(e.name))
+    .map((e) => ({ name: e.name, isDir: e.isDirectory() }))
+    .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
+    .slice(0, MAX_LIST_ENTRIES);
+}
 
 const PORT = Number(process.env.MYAGENT_SIDECAR_PORT) || 8137;
 const HOST = "127.0.0.1";
@@ -68,7 +87,7 @@ wss.on("connection", (ws: WebSocket) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
   };
 
-  emit({ type: "ready", providerId: activeProviderId, model: activeModel });
+  emit({ type: "ready", providerId: activeProviderId, model: activeModel, cwd: process.cwd() });
 
   ws.on("message", async (raw) => {
     let msg: IncomingMessage;
@@ -112,6 +131,30 @@ wss.on("connection", (ws: WebSocket) => {
       // de que el mensaje llegó (antes el handler era no-op en builds viejos).
       console.log(`[sidecar] reconfigurado: provider=${activeProviderId} model=${activeModel} key=${msg.apiKey ? "***" : "(vacía)"}`);
       emit({ type: "config_ok", providerId: activeProviderId, model: activeModel });
+      return;
+    }
+
+    // Árbol de archivos: listado directo (no pasa por el LLM). Responde con el
+    // mismo reqId; en error manda entries vacío + el mensaje.
+    if (msg.type === "list_dir") {
+      const root = msg.projectPath || process.cwd();
+      try {
+        const entries = await listDirForTree(root, msg.path || ".");
+        emit({ type: "dir_listing", reqId: msg.reqId, path: msg.path, entries });
+      } catch (err) {
+        emit({ type: "dir_listing", reqId: msg.reqId, path: msg.path, entries: [], error: (err as Error).message });
+      }
+      return;
+    }
+
+    // Retomar una sesión: reemplaza el historial (o lo vacía). El próximo
+    // user_message ya continúa con este contexto. ponytail: los snapshots de
+    // edit_file no se restauran — el modelo re-lee antes de editar (lo pide el
+    // system prompt), que es el camino correcto tras un reinicio.
+    if (msg.type === "load_history") {
+      const s = sessions.getOrCreate(sessionId, msg.projectPath || process.cwd(), "build");
+      s.messages = Array.isArray(msg.messages) ? msg.messages : [];
+      s.snapshots = new SnapshotStore();
       return;
     }
 
