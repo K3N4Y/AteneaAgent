@@ -5,7 +5,7 @@
 > [arquitectura-backend.md](./arquitectura-backend.md) y
 > [arquitectura-frontend.md](./arquitectura-frontend.md).
 
-Estado: **Fase 0 y Fase 1 implementadas y verificadas** (falta solo el demo en
+Estado: **Fases 0, 1 y 2 implementadas y verificadas** (falta solo el demo en
 vivo, que requiere la `OPENCODE_ZEN_API_KEY`). Ver [README.md](../README.md)
 para correr.
 
@@ -125,14 +125,38 @@ de punta a punta, aunque sea con un solo agente y una sola herramienta.
 
 ---
 
-## Fase 2 — UI rica tipo Codex
+## Fase 2 — UI rica tipo Codex ✅
 
-- [ ] `ProjectPicker`: elegir la carpeta del proyecto activo.
-- [ ] Árbol de archivos (lateral).
-- [ ] `DiffView`: diffs visuales de archivos editados.
-- [ ] `TerminalBlock`: salida en vivo de `run_command`.
-- [ ] Resaltado de sintaxis en bloques de código.
-- [ ] Historial / lista de sesiones y poder retomarlas.
+- [x] `ProjectPicker`: elegir la carpeta del proyecto activo. Diálogo nativo
+      (`@tauri-apps/plugin-dialog`; permiso `dialog:default`, plugin en
+      `lib.rs`), con fallback a `prompt()` fuera de Tauri. La carpeta se manda
+      como `projectPath` en cada `user_message` y persiste en localStorage; el
+      default es el `cwd` del sidecar (lo manda en el evento `ready`).
+- [x] Árbol de archivos (lateral): `FileTree` con **carga perezosa** (cada
+      carpeta pide sus hijos al sidecar vía mensaje `list_dir` → `dir_listing`,
+      sin pasar por el LLM). Oculta ruido (`.git`, `node_modules`, `target`,
+      `dist`). Clic en archivo inserta su ruta en el composer.
+- [x] `DiffView`: diffs visuales de archivos editados. Colorea el diff que
+      `edit_file`/`write_file` ya devuelven en su `output` (`DiffView.tsx`,
+      cableado en `ToolCallCard`).
+- [x] `TerminalBlock`: salida de `run_command` con estilo de terminal
+      (`TerminalBlock.tsx`). **Recorte:** no es streaming en vivo — el backend
+      captura todo y devuelve al final; la salida viva pide un evento de chunks
+      desde el sidecar (agregar cuando haga falta ver builds largos).
+- [x] Resaltado de sintaxis en bloques de código (`rehype-highlight` en
+      `react-markdown` + tema compacto hljs en `App.css`).
+- [x] Historial / lista de sesiones y poder retomarlas: persistidas en
+      localStorage (`state/history.ts`, cap 30), listadas en el rail lateral
+      (pestaña Sesiones). Retomar reconstruye el historial normalizado
+      (`LlmMessage[]`, incluidas las tool calls) y lo manda al sidecar con
+      `load_history`. **Recorte:** localStorage (no disco); los snapshots de
+      `edit_file` no se restauran (el modelo re-lee antes de editar).
+
+> Verificado: `tsc` (sidecar) + `tsc && vite build` (UI) + `cargo check` en
+> verde. Checks deterministas: `classify` de Diff/Terminal (12/12) y la
+> invariante `tool_use`↔`tool_result` de la reconstrucción de historial. Smoke:
+> `smoke-tools` OK; transporte `ready`(+`cwd`)+`error` sin key OK; handler
+> `list_dir` responde y oculta `node_modules`.
 
 ---
 
