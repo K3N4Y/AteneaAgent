@@ -15,8 +15,10 @@ import { editFileTool } from "./tools/edit";
 import { listDirTool } from "./tools/list-dir";
 import { searchTool } from "./tools/search";
 import { runCommandTool } from "./tools/run-command";
+import { startAppTool } from "./tools/start-app";
 import { submitPlanTool } from "./tools/submit-plan";
 import type { ToolContext } from "./tools/types";
+import type { ChildProcess } from "node:child_process";
 
 let failures = 0;
 function check(name: string, cond: boolean, extra = "") {
@@ -140,6 +142,30 @@ async function main() {
   const sp = await submitPlanTool.run({ markdown: "# Plan\n1. paso" }, planCtx);
   check("submit_plan ok", !sp.isError, sp.output);
   check("submit_plan emite el markdown por onPlan", captured.includes("# Plan"), captured);
+
+  // ── Fase 3: start_app (proceso de fondo de larga duración) ─────────────────
+
+  const apps: ChildProcess[] = [];
+  const appCtx: ToolContext = { ...ctx, confirm: async () => true, trackProcess: (c) => apps.push(c) };
+
+  // 13. start_app deja vivo un proceso de larga duración y lo rastrea para limpieza.
+  const sa = await startAppTool.run({ command: "sleep 5", wait_ms: 300 }, appCtx);
+  check("start_app reporta app corriendo", !sa.isError && sa.output.includes("sigue viva"), sa.output);
+  check("start_app rastrea el proceso", apps.length === 1 && apps[0].killed === false, String(apps.length));
+  apps[0].kill("SIGKILL");
+
+  // 14. proceso que termina solo → no quedó corriendo (isError).
+  const sa2 = await startAppTool.run({ command: "true", wait_ms: 1000 }, appCtx);
+  check("start_app detecta proceso que termina", sa2.isError && sa2.output.includes("no quedó corriendo"), sa2.output);
+
+  // 15. la cadena `ready` corta la espera antes del wait_ms.
+  const sa3 = await startAppTool.run({ command: "echo READY; sleep 5", ready: "READY", wait_ms: 5000 }, appCtx);
+  check("start_app corta al ver la cadena ready", !sa3.isError && sa3.output.includes("apareció"), sa3.output);
+  apps[apps.length - 1].kill("SIGKILL");
+
+  // 16. sin confirm ⇒ denegado (mismo gate que run_command).
+  const sa4 = await startAppTool.run({ command: "sleep 5" }, ctx);
+  check("start_app sin confirm asume denegado", sa4.isError, sa4.output);
 
   rmSync(root, { recursive: true, force: true });
   console.log(failures === 0 ? "\nTODO OK ✓" : `\n${failures} FALLO(S) ✗`);

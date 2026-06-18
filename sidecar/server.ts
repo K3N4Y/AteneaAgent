@@ -4,6 +4,7 @@
 
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
+import type { ChildProcess } from "node:child_process";
 
 import { registerBuiltinProviders, getProvider, listProviderIds } from "./providers/registry";
 import { defaultProviderModel } from "./config/models";
@@ -15,6 +16,7 @@ import { MAX_LIST_ENTRIES } from "./config/limits";
 import { toolsForAgent } from "./tools/registry";
 import { systemPromptFor } from "./engine/agents";
 import { runAgent } from "./engine/loop";
+import { killProcessTree } from "./tools/start-app";
 import type { DirEntry, EngineEvent, IncomingMessage } from "./engine/events";
 
 // Ruido que el árbol de archivos oculta (el agente sí lo ve vía list_dir).
@@ -43,6 +45,17 @@ const initial = defaultProviderModel();
 let activeProviderId = initial.providerId;
 let activeModel = initial.model;
 const sessions = new SessionStore();
+
+// Rastro global de apps de larga duración (start_app) para que los handlers de
+// SIGTERM/SIGINT puedan matarlas. ws.on("close") sólo corre en desconexiones
+// limpias; las señales no lo disparan, y Tauri nos manda SIGTERM al cerrar.
+const allApps = new Set<ChildProcess>();
+const killAllApps = () => {
+  for (const c of allApps) killProcessTree(c);
+  allApps.clear();
+};
+process.on("SIGTERM", () => { killAllApps(); process.exit(0); });
+process.on("SIGINT", () => { killAllApps(); process.exit(0); });
 
 // Si la cáscara que nos lanzó muere (Ctrl-C, crash), nos autoterminamos para no
 // quedar huérfanos ocupando el puerto. La cáscara nos pasa su PID por env.
@@ -73,6 +86,11 @@ wss.on("connection", (ws: WebSocket) => {
   const sessionId = randomUUID();
   let running = false;
   let controller: AbortController | undefined;
+
+  // Apps de larga duración arrancadas con start_app: las matamos al cerrar la
+  // sesión para no dejar servidores de dev huérfanos. ponytail: viven hasta el
+  // close; no las matamos en abort (abort corta el turno, no la app levantada).
+  const apps: ChildProcess[] = [];
 
   // Confirmaciones de run_command pendientes: id → resolver de la promesa que
   // el loop está esperando. Se resuelven con la respuesta del usuario, o con
@@ -183,29 +201,39 @@ wss.on("connection", (ws: WebSocket) => {
     running = true;
     controller = new AbortController();
     try {
-      await runAgent(
-        {
-          providerId: activeProviderId,
-          model: activeModel,
-          system: systemPromptFor(msg.agentId),
-          messages: session.messages,
-          tools: toolsForAgent(msg.agentId),
-          ctx: {
-            projectRoot: session.projectRoot,
-            snapshots: session.snapshots,
-            // run_command pide confirmación: emitimos un permission_request y
-            // esperamos a que la UI responda con permission_response.
-            confirm: (req) =>
-              new Promise<boolean>((resolve) => {
-                const id = randomUUID();
-                pendingPermissions.set(id, resolve);
-                emit({ type: "permission_request", id, command: req.command, cwd: req.cwd });
-              }),
-            // submit_plan (agente Plan) presenta el plan como evento `plan`.
-            onPlan: (markdown) => emit({ type: "plan", markdown }),
-          },
-          signal: controller.signal,
+      const base = {
+        providerId: activeProviderId,
+        model: activeModel,
+        messages: session.messages,
+        ctx: {
+          projectRoot: session.projectRoot,
+          snapshots: session.snapshots,
+          // run_command/start_app piden confirmación: emitimos un
+          // permission_request y esperamos el permission_response de la UI.
+          confirm: (req) =>
+            new Promise<boolean>((resolve) => {
+              const id = randomUUID();
+              pendingPermissions.set(id, resolve);
+              emit({ type: "permission_request", id, command: req.command, cwd: req.cwd });
+            }),
+          // submit_plan (agente Plan) presenta el plan como evento `plan`.
+          onPlan: (markdown) => emit({ type: "plan", markdown }),
+          // start_app registra su proceso para matarlo al cerrar la sesión
+          // (y a nivel global, para que SIGTERM de la cáscara también lo limpie).
+          trackProcess: (child) => { apps.push(child); allApps.add(child); },
         },
+        signal: controller.signal,
+      } satisfies Omit<Parameters<typeof runAgent>[0], "system" | "tools">;
+
+      // E2E = Plan→Build con gate humano. El primer turno PROPONE: corre con el
+      // prompt/tools de `plan` (sólo lectura + submit_plan) y se detiene al emitir
+      // el plan. La UI lo muestra con botón "Aprobar"; al aprobar reenvía el
+      // mensaje con `approve`, y RECIÉN ahí corremos la CONSTRUCCIÓN (prompt/tools
+      // de `e2e`: write/edit/run/start_app) sobre el mismo historial. El resto de
+      // los agentes corren su fase única directa.
+      const phase = msg.agentId === "e2e" && !msg.approve ? "plan" : msg.agentId;
+      await runAgent(
+        { ...base, system: systemPromptFor(phase), tools: toolsForAgent(phase) },
         emit,
       );
     } catch (err) {
@@ -219,6 +247,11 @@ wss.on("connection", (ws: WebSocket) => {
   ws.on("close", () => {
     controller?.abort();
     drainPermissions();
+    // Matar las apps de larga duración (start_app) para no dejarlas huérfanas.
+    for (const child of apps) {
+      allApps.delete(child);
+      killProcessTree(child);
+    }
     sessions.delete(sessionId);
   });
 });

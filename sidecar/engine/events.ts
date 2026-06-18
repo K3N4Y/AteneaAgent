@@ -23,6 +23,12 @@ export interface UserMessage {
   agentId: AgentId;
   /** Carpeta del proyecto activo. Si se omite, el motor usa su CWD. */
   projectPath?: string;
+  /**
+   * Gate del flujo E2E: marca este mensaje como la aprobación del plan ("sí,
+   * construí"). Sólo lo usa E2E — con `approve` el motor corre la fase de
+   * construcción; sin él (primer turno) propone un plan y se detiene.
+   */
+  approve?: boolean;
 }
 
 /** Pide abortar el turno en curso. */
