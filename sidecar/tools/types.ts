@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import type { ChildProcess } from "node:child_process";
 
 import type { ToolSpec } from "../providers/types";
 import type { SnapshotStore } from "../edit/hashline/snapshot-store";
@@ -33,6 +34,12 @@ export interface ToolContext {
    * Plan). El server lo cablea a un evento `plan` hacia la UI.
    */
   onPlan?: (markdown: string) => void;
+  /**
+   * Registra un proceso de FONDO de larga duración (start_app) para matarlo al
+   * cerrar la sesión y no dejar servidores huérfanos. El server lo cablea; si no
+   * está provista (tests), start_app igual arranca pero nadie lo limpia.
+   */
+  trackProcess?: (child: ChildProcess) => void;
 }
 
 export interface ToolResult {

@@ -10,6 +10,7 @@ import { editFileTool } from "./edit";
 import { listDirTool } from "./list-dir";
 import { searchTool } from "./search";
 import { runCommandTool } from "./run-command";
+import { startAppTool } from "./start-app";
 import { submitPlanTool } from "./submit-plan";
 
 export const ALL_TOOLS: Tool[] = [
@@ -19,6 +20,7 @@ export const ALL_TOOLS: Tool[] = [
   listDirTool,
   searchTool,
   runCommandTool,
+  startAppTool,
   submitPlanTool,
 ];
 
@@ -26,12 +28,14 @@ export const ALL_TOOLS: Tool[] = [
  * Tools habilitadas por agente (Fase 1):
  * - plan: sólo lectura/exploración + submit_plan para presentar el plan. NUNCA
  *   escribe ni corre comandos.
- * - build: lectura + escritura/edición + exploración + run_command (con
- *   confirmación humana).
- * - e2e: igual que build; el scaffolding de proyectos nuevos llega en Fase 3.
+ * - build: lectura + escritura/edición + exploración + run_command + start_app
+ *   (con confirmación humana).
+ * - e2e: igual que build. El flujo E2E es Plan→Build con gate humano: el primer
+ *   turno usa el set de `plan` (sólo lectura) y, al aprobar, la construcción usa
+ *   este set — el ruteo por fase vive en server.ts (msg.approve).
  */
 const READ_ONLY = [readFileTool, listDirTool, searchTool];
-const WRITE = [writeFileTool, editFileTool, runCommandTool];
+const WRITE = [writeFileTool, editFileTool, runCommandTool, startAppTool];
 
 const TOOLS_BY_AGENT = {
   plan: [...READ_ONLY, submitPlanTool],

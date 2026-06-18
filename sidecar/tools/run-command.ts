@@ -8,22 +8,8 @@ import { spawn } from "node:child_process";
 
 import { type Tool, type ToolResult } from "./types";
 import { resolveWithinProject } from "./fs-safe";
+import { subprocessEnv } from "./proc-env";
 import { MAX_COMMAND_MS, MAX_COMMAND_OUTPUT_BYTES } from "../config/limits";
-
-const SAFE_ENV_VARS = [
-  "PATH",
-  "HOME",
-  "LANG",
-  "LC_ALL",
-  "TZ",
-  "USER",
-  "SHELL",
-  "TMPDIR",
-  "NODE_ENV",
-  "CI",
-  "LANGUAGE",
-  "TERM",
-];
 
 const schema = z.object({
   command: z.string().min(1).describe("Comando de shell a ejecutar (se corre con `sh -c`)."),
@@ -62,16 +48,7 @@ export const runCommandTool: Tool<z.infer<typeof schema>> = {
 
 function execShell(command: string, cwd: string): Promise<ToolResult> {
   return new Promise((resolve) => {
-    const child = spawn(command, {
-      cwd,
-      shell: true,
-      env: {
-        ...Object.fromEntries(
-          SAFE_ENV_VARS.filter((k) => k in process.env).map((k) => [k, process.env[k]!])
-        ),
-        PWD: cwd,
-      },
-    });
+    const child = spawn(command, { cwd, shell: true, env: subprocessEnv(cwd) });
 
     const chunks: Buffer[] = [];
     let remaining = MAX_COMMAND_OUTPUT_BYTES;
