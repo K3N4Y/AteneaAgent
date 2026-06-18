@@ -1128,11 +1128,11 @@ body {
   border: 0;
   padding: 4px 4px 0;
   font-family: inherit;
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.5;
   outline: none;
-  min-height: 96px;
-  max-height: 320px;
+  min-height: 52px;
+  max-height: 220px;
 }
 .composer-input::placeholder {
   color: var(--muted);
