@@ -18,51 +18,51 @@ test("cabecera: extrae path y tag", () => {
 });
 
 test("SWAP simple y con rango", () => {
-  assert.deepEqual(one("[f#T]\nSWAP 3:\n+nuevo").ops, [
+  assert.deepEqual(one("[f#AB12]\nSWAP 3:\n+nuevo").ops, [
     { kind: "swap", start: 3, end: 3, body: ["nuevo"] },
   ]);
-  assert.deepEqual(one("[f#T]\nSWAP 3.=5:\n+a\n+b").ops, [
+  assert.deepEqual(one("[f#AB12]\nSWAP 3.=5:\n+a\n+b").ops, [
     { kind: "swap", start: 3, end: 5, body: ["a", "b"] },
   ]);
 });
 
 test("DEL simple y con rango (sin cuerpo)", () => {
-  assert.deepEqual(one("[f#T]\nDEL 4").ops, [
+  assert.deepEqual(one("[f#AB12]\nDEL 4").ops, [
     { kind: "del", start: 4, end: 4 },
   ]);
-  assert.deepEqual(one("[f#T]\nDEL 4.=6").ops, [
+  assert.deepEqual(one("[f#AB12]\nDEL 4.=6").ops, [
     { kind: "del", start: 4, end: 6 },
   ]);
 });
 
 test("INS.PRE / INS.POST / INS.HEAD / INS.TAIL", () => {
-  assert.deepEqual(one("[f#T]\nINS.PRE 2:\n+x").ops, [
+  assert.deepEqual(one("[f#AB12]\nINS.PRE 2:\n+x").ops, [
     { kind: "ins_pre", line: 2, body: ["x"] },
   ]);
-  assert.deepEqual(one("[f#T]\nINS.POST 2:\n+x").ops, [
+  assert.deepEqual(one("[f#AB12]\nINS.POST 2:\n+x").ops, [
     { kind: "ins_post", line: 2, body: ["x"] },
   ]);
-  assert.deepEqual(one("[f#T]\nINS.HEAD:\n+x").ops, [
+  assert.deepEqual(one("[f#AB12]\nINS.HEAD:\n+x").ops, [
     { kind: "ins_head", body: ["x"] },
   ]);
-  assert.deepEqual(one("[f#T]\nINS.TAIL:\n+x").ops, [
+  assert.deepEqual(one("[f#AB12]\nINS.TAIL:\n+x").ops, [
     { kind: "ins_tail", body: ["x"] },
   ]);
 });
 
 test("cuerpo: '+' solo es línea en blanco; el resto es texto literal", () => {
-  assert.deepEqual(one("[f#T]\nINS.HEAD:\n+\n+texto").ops[0], {
+  assert.deepEqual(one("[f#AB12]\nINS.HEAD:\n+\n+texto").ops[0], {
     kind: "ins_head",
     body: ["", "texto"],
   });
 });
 
 test("líneas en blanco entre ops se ignoran", () => {
-  assert.equal(one("[f#T]\nDEL 1\n\n   \nDEL 2").ops.length, 2);
+  assert.equal(one("[f#AB12]\nDEL 1\n\n   \nDEL 2").ops.length, 2);
 });
 
 test("múltiples secciones", () => {
-  const sections = parseHashline("[a#T]\nDEL 1\n[b#U]\nDEL 2");
+  const sections = parseHashline("[a#AB12]\nDEL 1\n[b#CD34]\nDEL 2");
   assert.equal(sections.length, 2);
   assert.equal(sections[0].path, "a");
   assert.equal(sections[1].path, "b");
@@ -71,7 +71,7 @@ test("múltiples secciones", () => {
 // ── Errores ──────────────────────────────────────────────────────────────────
 
 test("rechaza cuerpo '+' sin una op que acepte cuerpo", () => {
-  assert.throws(() => parseHashline("[f#T]\nDEL 1\n+huerfano"), ParseError);
+  assert.throws(() => parseHashline("[f#AB12]\nDEL 1\n+huerfano"), ParseError);
 });
 
 test("rechaza una op fuera de cualquier sección", () => {
@@ -79,7 +79,7 @@ test("rechaza una op fuera de cualquier sección", () => {
 });
 
 test("rechaza una op no reconocida", () => {
-  assert.throws(() => parseHashline("[f#T]\nFOO 1"), ParseError);
+  assert.throws(() => parseHashline("[f#AB12]\nFOO 1"), ParseError);
 });
 
 test("rechaza input sin ninguna sección", () => {
@@ -91,7 +91,7 @@ test("rechaza superar MAX_EDIT_OPS", () => {
     { length: MAX_EDIT_OPS + 1 },
     (_, i) => `DEL ${i + 1}`,
   );
-  assert.throws(() => parseHashline(`[f#T]\n${ops.join("\n")}`), ParseError);
+  assert.throws(() => parseHashline(`[f#AB12]\n${ops.join("\n")}`), ParseError);
 });
 
 test("rechaza input que excede MAX_EDIT_INPUT_BYTES", () => {

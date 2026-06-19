@@ -1,17 +1,32 @@
 // Formato de salida de `read_file`: cabecera [PATH#TAG] + líneas "N:TEXTO",
-// y el parseo de rangos simples para leer sólo una parte del archivo.
+// y parseo de rangos simples para leer sólo parte del archivo.
+
+import { createHash } from "node:crypto";
+
+export const HASHLINE_HASH_LENGTH = 4;
+
+export function computeFileHash(text: string): string {
+  return createHash("sha256")
+    .update(text.replace(/\r\n?/g, "\n"))
+    .digest("hex")
+    .slice(0, HASHLINE_HASH_LENGTH)
+    .toUpperCase();
+}
 
 export function formatHeader(path: string, hash: string): string {
   return `[${path}#${hash}]`;
+}
+
+export function formatNumberedLine(lineNumber: number, line: string): string {
+  return `${lineNumber}:${line}`;
 }
 
 /** Rango 1-indexado, inclusivo en ambos extremos. */
 export type Range = [start: number, end: number];
 
 /**
- * Parsea un selector de rango: "41-80", "10+5" (desde 10, 5 líneas), "42"
- * (una línea), "100-" (hasta el final), "-20" (desde el inicio), y listas
- * separadas por comas: "5-16,200-210". Devuelve rangos clampados y ordenados.
+ * Parsea selectores: "41-80", "10+5", "42", "100-", "-20", y listas
+ * separadas por coma. Tokens inválidos se ignoran; si ninguno sirve, lee todo.
  */
 export function parseRanges(range: string | undefined, total: number): Range[] {
   if (!range || !range.trim()) return [[1, total]];
@@ -23,7 +38,6 @@ export function parseRanges(range: string | undefined, total: number): Range[] {
 
     let start: number;
     let end: number;
-
     const plus = token.match(/^(\d+)\+(\d+)$/);
     const dash = token.match(/^(\d*)-(\d*)$/);
 
@@ -36,7 +50,7 @@ export function parseRanges(range: string | undefined, total: number): Range[] {
     } else if (/^\d+$/.test(token)) {
       start = end = Number(token);
     } else {
-      continue; // token inválido: lo ignoramos (MVP)
+      continue;
     }
 
     start = Math.max(1, Math.min(start, total));
@@ -51,8 +65,8 @@ export function parseRanges(range: string | undefined, total: number): Range[] {
 export function buildNumbered(lines: string[], ranges: Range[]): string {
   const out: string[] = [];
   for (const [start, end] of ranges) {
-    for (let n = start; n <= end; n++) {
-      out.push(`${n}:${lines[n - 1] ?? ""}`);
+    for (let line = start; line <= end; line++) {
+      out.push(formatNumberedLine(line, lines[line - 1] ?? ""));
     }
   }
   return out.join("\n");
