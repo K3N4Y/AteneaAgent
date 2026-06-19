@@ -19,12 +19,14 @@ export function PermissionCard() {
       </pre>
       <div className="perm-actions">
         <button
+          type="button"
           className="perm-btn perm-deny"
           onClick={() => respondPermission(pending.id, false)}
         >
           Rechazar
         </button>
         <button
+          type="button"
           className="perm-btn perm-approve"
           onClick={() => respondPermission(pending.id, true)}
         >

@@ -10,12 +10,14 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-tabs">
         <button
+          type="button"
           className={tab === "files" ? "active" : ""}
           onClick={() => setTab("files")}
         >
           Archivos
         </button>
         <button
+          type="button"
           className={tab === "history" ? "active" : ""}
           onClick={() => setTab("history")}
         >

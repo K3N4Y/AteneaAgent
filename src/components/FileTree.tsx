@@ -62,6 +62,7 @@ function TreeNode({ entry, path }: { entry: DirEntry; path: string }) {
   return (
     <div className="tree-node">
       <button
+        type="button"
         className={`tree-row ${entry.isDir ? "is-dir" : "is-file"}`}
         onClick={onClick}
         title={path}

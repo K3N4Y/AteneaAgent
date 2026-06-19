@@ -2,7 +2,7 @@
 // al click abre el modal de proyectos (elegir uno ya abierto o abrir uno nuevo).
 
 import { useSession } from "../state/session";
-import { projectBasename } from "./ProjectPicker";
+import { projectBasename } from "./projectDir";
 import { ChevronIcon } from "./icons";
 
 export function ProjectButton({ onClick }: { onClick: () => void }) {

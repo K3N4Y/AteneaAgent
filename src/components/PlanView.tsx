@@ -30,6 +30,7 @@ export function PlanView({ plan }: { plan: UiPlan }) {
       </div>
       <div className="plan-actions">
         <button
+          type="button"
           className="plan-approve"
           disabled={plan.approved || streaming}
           onClick={() => approvePlan()}

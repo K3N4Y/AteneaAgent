@@ -93,7 +93,7 @@ export function MessageBubble({
   calls.forEach((c, i) => {
     const off = offsetOf(c, fullText.length);
     const chunk = fullText.slice(prev, off);
-    if (chunk) blocks.push(<MarkdownChunk key={`t${i}`} text={chunk} />);
+    if (chunk) blocks.push(<MarkdownChunk key={`t${c.id}`} text={chunk} />);
     blocks.push(<ToolCallCard key={c.id} call={c} />);
     blocks.push(...thinkingAfter(i + 1, `think${i + 1}`)); // razonamiento tras esta tool
     prev = off;

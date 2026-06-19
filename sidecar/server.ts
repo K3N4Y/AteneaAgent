@@ -73,6 +73,43 @@ function finalAssistantText(messages: LlmMessage[]): string {
 const PORT = Number(process.env.MYAGENT_SIDECAR_PORT) || 8137;
 const HOST = "127.0.0.1";
 
+// Frontera de confianza del WS local. Este socket puede disparar capacidades
+// nativas (run_command, start_app, edición de archivos), y los WebSocket NO
+// están sujetos a CORS: cualquier página que el usuario abra en un navegador
+// podría conectar a ws://127.0.0.1:8137 y manejar el agente. Nos atamos a
+// 127.0.0.1 (nadie de la red llega) y ADEMÁS validamos el Origin del handshake
+// contra una allowlist EXACTA. El navegador fija el Origin a la página real, así
+// que una web atacante no puede falsificarlo; por eso basta con igualdad tras
+// parsear la URL — nunca substring/includes ni "*".
+const ALLOWED_ORIGINS = new Set(
+  process.env.MYAGENT_ALLOWED_ORIGINS?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean) ?? [
+    "http://localhost:1420", // vite dev (tauri.conf.json → devUrl)
+    "http://127.0.0.1:1420",
+    "tauri://localhost", // webview de producción (Linux/macOS)
+    "http://tauri.localhost", // webview de producción (Windows)
+    "https://tauri.localhost",
+  ],
+);
+
+/**
+ * ¿El Origin del handshake está permitido? Sin Origin = cliente no-navegador
+ * (nuestros smoke tests con `ws`, curl, etc.): una web atacante SIEMPRE manda
+ * Origin, así que su ausencia no puede ser un ataque cross-site → lo dejamos
+ * pasar. Con Origin presente exigimos igualdad exacta de protocolo+host tras
+ * parsear con `URL`.
+ */
+function originAllowed(origin: string | undefined): boolean {
+  if (!origin) return true;
+  try {
+    const u = new URL(origin);
+    return ALLOWED_ORIGINS.has(`${u.protocol}//${u.host}`);
+  } catch {
+    return false;
+  }
+}
+
 registerBuiltinProviders();
 const initial = defaultProviderModel();
 // Activos: arrancan con los defaults de env, se pueden reconfigurar al vuelo
@@ -102,7 +139,19 @@ process.on("SIGINT", () => {
 // quedar huérfanos ocupando el puerto. La cáscara nos pasa su PID por env.
 watchParent();
 
-const wss = new WebSocketServer({ host: HOST, port: PORT });
+const wss = new WebSocketServer({
+  host: HOST,
+  port: PORT,
+  // Rechaza el handshake (HTTP 403) si el Origin no está en la allowlist: es la
+  // puerta que impide que páginas web arbitrarias hablen con el sidecar.
+  verifyClient: ({ origin }, done) => {
+    if (originAllowed(origin)) return done(true);
+    console.warn(
+      `[sidecar] handshake rechazado: origin no permitido (${origin ?? "—"})`,
+    );
+    done(false, 403, "Origin not allowed");
+  },
+});
 
 wss.on("listening", () => {
   console.log(`[sidecar] escuchando en ws://${HOST}:${PORT}`);

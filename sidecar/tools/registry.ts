@@ -14,18 +14,6 @@ import { startAppTool } from "./start-app";
 import { submitPlanTool } from "./submit-plan";
 import { taskTool } from "./task";
 
-export const ALL_TOOLS: Tool[] = [
-  readFileTool,
-  writeFileTool,
-  editFileTool,
-  listDirTool,
-  searchTool,
-  runCommandTool,
-  startAppTool,
-  submitPlanTool,
-  taskTool,
-];
-
 /**
  * Tools habilitadas por agente (Fase 1):
  * - plan: sólo lectura/exploración + submit_plan para presentar el plan. NUNCA

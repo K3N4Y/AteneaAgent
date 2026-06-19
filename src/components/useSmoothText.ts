@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // Núcleo puro: cuánto avanzar el índice de revelado en un frame.
-export function nextIndex(idx: number, len: number, factor = 0.2): number {
+function nextIndex(idx: number, len: number, factor = 0.2): number {
   if (idx >= len) return idx;
   return Math.min(len, idx + Math.max(1, Math.ceil((len - idx) * factor)));
 }

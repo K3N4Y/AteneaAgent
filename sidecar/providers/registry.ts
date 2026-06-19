@@ -9,7 +9,7 @@ import {
 
 const registry = new Map<string, LlmProvider>();
 
-export function registerProvider(p: LlmProvider): void {
+function registerProvider(p: LlmProvider): void {
   registry.set(p.id, p);
 }
 

@@ -18,10 +18,6 @@ const API_KEY_ENV: Record<string, string> = {
 // la UI lo reenvía en cada reconexión desde localStorage.
 const KEY_OVERRIDES = new Map<string, string>();
 
-export function apiKeyEnvFor(providerId: string): string | undefined {
-  return API_KEY_ENV[providerId];
-}
-
 export function getApiKey(providerId: string): string | undefined {
   const override = KEY_OVERRIDES.get(providerId);
   if (override) return override;
