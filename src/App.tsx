@@ -34,6 +34,7 @@ function App() {
         <div className="brand">MyAgent</div>
         <ProjectPicker onClick={() => setProjectsOpen(true)} />
         <button
+          type="button"
           className={`icon-btn sidebar-toggle ${sidebarOpen ? "active" : ""}`}
           onClick={() => setSidebarOpen((v) => !v)}
           title="Mostrar u ocultar el panel lateral"
@@ -42,6 +43,7 @@ function App() {
           ☰
         </button>
         <button
+          type="button"
           className={`icon-btn logs-toggle ${logsOpen ? "active" : ""}`}
           onClick={() => setLogsOpen((v) => !v)}
           title="Logs de desarrollo"
@@ -51,6 +53,7 @@ function App() {
           {logErrors > 0 && <span className="logs-badge">{logErrors}</span>}
         </button>
         <button
+          type="button"
           className="icon-btn"
           onClick={() => setSettingsOpen(true)}
           title="Configuración"

@@ -22,10 +22,11 @@ export function LogsPanel({ onClose }: { onClose: () => void }) {
         <span className="logs-title">Logs de desarrollo</span>
         <span className="logs-count">{logs.length}</span>
         <div className="logs-actions">
-          <button className="logs-btn" onClick={clearLogs}>
+          <button type="button" className="logs-btn" onClick={clearLogs}>
             Limpiar
           </button>
           <button
+            type="button"
             className="logs-btn"
             onClick={onClose}
             aria-label="Cerrar logs"

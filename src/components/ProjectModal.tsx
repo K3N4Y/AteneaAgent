@@ -5,7 +5,7 @@
 import { listSessions } from "../state/history";
 import { useSession } from "../state/session";
 import { openProject } from "../transport/client";
-import { pickProjectDir, projectBasename } from "./ProjectPicker";
+import { pickProjectDir, projectBasename } from "./projectDir";
 
 interface Known {
   path: string;
@@ -57,7 +57,12 @@ export function ProjectModal({ onClose }: { onClose: () => void }) {
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div className="modal-title">Proyectos</div>
-          <button className="modal-close" onClick={onClose} aria-label="Cerrar">
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
             ✕
           </button>
         </div>
@@ -70,6 +75,7 @@ export function ProjectModal({ onClose }: { onClose: () => void }) {
           )}
           {projects.map((p) => (
             <button
+              type="button"
               key={p.path}
               className={`project-row ${p.path === current ? "active" : ""}`}
               onClick={() => choose(p.path)}
@@ -85,6 +91,7 @@ export function ProjectModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <button
+          type="button"
           className="modal-btn modal-btn-save project-open-new"
           onClick={openNew}
         >

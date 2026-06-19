@@ -1,0 +1,16 @@
+# `sidecar/` es una instalación pnpm INDEPENDIENTE de la raíz (su propio
+# lockfile). pnpm v10 trata cualquier `pnpm-workspace.yaml` ancestro como la raíz
+# del workspace; como el de la raíz no declara `packages:`, `sidecar` no es
+# miembro y `pnpm --dir sidecar install` no encontraba proyecto ("No projects
+# found") e instalaba NADA → el typecheck del sidecar fallaba en CI con "Cannot
+# find module 'zod'/'ws'/'openai'". Este archivo hace que `sidecar/` sea su
+# propia raíz de workspace, restaurando la instalación standalone.
+#
+# Replicamos el endurecimiento de cadena de suministro de la raíz (ver
+# ../pnpm-workspace.yaml):
+#   minimumReleaseAge: esperá 7 días (10080 min) antes de instalar una versión
+#     recién publicada.
+#   trustPolicy=no-downgrade: rechazá versiones con señales de confianza más
+#     débiles que una previa.
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade

@@ -37,7 +37,11 @@ export function ThinkingBlock({
 
   return (
     <div className="think-card">
-      <button className="think-head" onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className="think-head"
+        onClick={() => setOpen((o) => !o)}
+      >
         <span className="think-badge">{live ? "💭" : "✓"}</span>
         <span className="think-name">
           {live ? "Pensando…" : "Razonamiento"}

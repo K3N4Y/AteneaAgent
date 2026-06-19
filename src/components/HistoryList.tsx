@@ -15,7 +15,7 @@ import {
   startNewSession,
   openProject,
 } from "../transport/client";
-import { pickProjectDir } from "./ProjectPicker";
+import { pickProjectDir } from "./projectDir";
 
 function rel(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -82,6 +82,14 @@ function groupByProject(sessions: StoredSession[]): Group[] {
   return groups;
 }
 
+// Abre el diálogo nativo de carpeta y, si se elige una, la abre como proyecto.
+// A nivel de módulo: no cierra sobre props/estado (todo viene de imports), así
+// no se recrea en cada render.
+async function addProject() {
+  const dir = await pickProjectDir(useSession.getState().projectPath);
+  if (dir) openProject(dir);
+}
+
 export function HistoryList() {
   const sessionId = useSession((s) => s.sessionId);
   useSession((s) => s.messages); // re-render al persistir un turno
@@ -99,18 +107,13 @@ export function HistoryList() {
     });
   }
 
-  async function addProject() {
-    const dir = await pickProjectDir(useSession.getState().projectPath);
-    if (dir) openProject(dir);
-  }
-
   return (
     <div className="history">
       <div className="history-actions">
-        <button className="history-new" onClick={startNewSession}>
+        <button type="button" className="history-new" onClick={startNewSession}>
           + Nueva sesión
         </button>
-        <button className="history-new" onClick={addProject}>
+        <button type="button" className="history-new" onClick={addProject}>
           + Proyecto
         </button>
       </div>
@@ -123,6 +126,7 @@ export function HistoryList() {
         return (
           <div key={key} className="history-group">
             <button
+              type="button"
               className="history-group-label"
               title={g.path ?? g.label}
               aria-expanded={!isCollapsed}
@@ -143,6 +147,7 @@ export function HistoryList() {
                   className={`history-item ${s.id === sessionId ? "active" : ""}`}
                 >
                   <button
+                    type="button"
                     className="history-open"
                     onClick={() => resumeSession(s)}
                     title={s.title}
@@ -151,6 +156,7 @@ export function HistoryList() {
                     <span className="history-time">{rel(s.updatedAt)}</span>
                   </button>
                   <button
+                    type="button"
                     className="history-del"
                     title="Eliminar"
                     aria-label="Eliminar sesión"

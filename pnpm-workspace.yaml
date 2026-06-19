@@ -1,0 +1,12 @@
+# Configuración de pnpm para el repo. Más allá de settings, NO declaramos
+# `packages:` a propósito: la raíz y `sidecar/` siguen siendo instalaciones
+# independientes (cada una con su lockfile), igual que antes.
+#
+# Endurecimiento de cadena de suministro (supply chain):
+#   minimumReleaseAge: esperá 7 días (10080 min) antes de instalar cualquier
+#     versión recién publicada. Si alguien publica una versión con malware y la
+#     comunidad la detecta y despublica en horas, nunca llega a nuestro lockfile.
+#   trustPolicy=no-downgrade: rechazá una versión cuyas señales de confianza
+#     (procedencia/firmas) sean MÁS débiles que las de una versión previa.
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade

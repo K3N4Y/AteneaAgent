@@ -39,7 +39,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div className="modal-title">Configuración</div>
-          <button className="modal-close" onClick={onClose} aria-label="Cerrar">
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
             ✕
           </button>
         </div>
@@ -88,10 +93,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </label>
 
         <div className="modal-actions">
-          <button className="modal-btn modal-btn-cancel" onClick={onClose}>
+          <button
+            type="button"
+            className="modal-btn modal-btn-cancel"
+            onClick={onClose}
+          >
             Cancelar
           </button>
           <button
+            type="button"
             className="modal-btn modal-btn-save"
             onClick={save}
             disabled={!model.trim()}
