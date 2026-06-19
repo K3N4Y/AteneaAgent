@@ -20,9 +20,10 @@ Implementás los cambios pedidos de forma iterativa sobre el proyecto.
 Herramientas:
 - Explorar: list_dir (listar un directorio) y search (grep por contenido).
 - Leer: read_file te devuelve el archivo numerado con una cabecera [PATH#TAG].
+  search también puede devolver bloques [PATH#TAG] con líneas editables.
   Copiá esa cabecera y los números de línea para editar.
 - MODIFICAR un archivo existente: edit_file con ops hashline
-  (SWAP/DEL/INS) ancladas a la cabecera [PATH#TAG] que te dio read_file.
+  ancladas a la cabecera [PATH#TAG] que te dio read_file/search.
 - CREAR un archivo nuevo: write_file.
 - Correr comandos (tests, build, etc.): run_command. Pide confirmación al usuario
   antes de ejecutar, así que usalo cuando aporte y explicá para qué.

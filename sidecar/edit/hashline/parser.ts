@@ -1,17 +1,15 @@
-// Parser del input de `edit_file`: una o más secciones, cada una con su
-// cabecera [PATH#TAG] y operaciones por número de línea.
+// Parser del input de `edit_file`: una o más secciones [PATH#TAG] con
+// operaciones concretas por número de línea.
 //
-// Ops del MVP (sin tree-sitter / sin `.BLK`):
-//   SWAP N.=M:   reemplaza N..M por las filas +TEXTO de abajo   (cuerpo)
+// Soporta sólo el contrato disponible en MyAgent:
+//   SWAP N.=M:   reemplaza N..M por las filas +TEXTO de abajo
 //   SWAP N:      = SWAP N.=N
-//   DEL  N.=M    borra N..M                                      (sin cuerpo)
+//   DEL  N.=M    borra N..M
 //   DEL  N       = DEL N.=N
-//   INS.PRE  N:  inserta antes de N                              (cuerpo)
-//   INS.POST N:  inserta después de N                            (cuerpo)
-//   INS.HEAD:    inserta al inicio del archivo                   (cuerpo)
-//   INS.TAIL:    inserta al final del archivo                    (cuerpo)
-//
-// Filas de cuerpo: empiezan con `+`; `+` solo = línea en blanco.
+//   INS.PRE  N:  inserta antes de N
+//   INS.POST N:  inserta después de N
+//   INS.HEAD:    inserta al inicio del archivo
+//   INS.TAIL:    inserta al final del archivo
 
 import { normalize } from "./hash";
 import { MAX_EDIT_INPUT_BYTES, MAX_EDIT_OPS } from "../../config/limits";
@@ -30,7 +28,7 @@ export interface Section {
   ops: Op[];
 }
 
-const HEADER = /^\[(.+)#([^\]#]+)\]\s*$/;
+const HEADER = /^\[(.+)#([0-9A-Fa-f]{4})\]\s*$/;
 const RE_SWAP = /^SWAP\s+(\d+)(?:\.=(\d+))?:\s*$/;
 const RE_DEL = /^DEL\s+(\d+)(?:\.=(\d+))?\s*$/;
 const RE_INS_PRE = /^INS\.PRE\s+(\d+):\s*$/;
@@ -50,9 +48,8 @@ export function parseHashline(input: string): Section[] {
 
   const lines = normalize(input).split("\n");
   const sections: Section[] = [];
-
   let section: Section | undefined;
-  let op: Op | undefined; // op en construcción (acumulando cuerpo)
+  let op: Op | undefined;
 
   const flushOp = () => {
     if (op && section) section.ops.push(op);
@@ -66,15 +63,13 @@ export function parseHashline(input: string): Section[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-
     const header = line.match(HEADER);
     if (header) {
       flushSection();
-      section = { path: header[1], tag: header[2], ops: [] };
+      section = { path: header[1], tag: header[2].toUpperCase(), ops: [] };
       continue;
     }
 
-    // Fila de cuerpo: pertenece a la op actual (si admite cuerpo).
     if (line.startsWith("+")) {
       if (!op || !("body" in op)) {
         throw new ParseError(
@@ -85,10 +80,8 @@ export function parseHashline(input: string): Section[] {
       continue;
     }
 
-    // Línea en blanco / sólo espacios: separador, se ignora.
     if (line.trim() === "") continue;
 
-    // A partir de aquí debe ser una operación nueva.
     if (!section) {
       throw new ParseError(
         `Operación fuera de una sección [PATH#TAG] (línea ${i + 1}): ${line}`,
@@ -96,20 +89,20 @@ export function parseHashline(input: string): Section[] {
     }
     flushOp();
 
-    let m: RegExpMatchArray | null;
-    if ((m = line.match(RE_SWAP))) {
-      const start = Number(m[1]);
-      const end = m[2] ? Number(m[2]) : start;
+    let match: RegExpMatchArray | null;
+    if ((match = line.match(RE_SWAP))) {
+      const start = Number(match[1]);
+      const end = match[2] ? Number(match[2]) : start;
       op = { kind: "swap", start, end, body: [] };
-    } else if ((m = line.match(RE_DEL))) {
-      const start = Number(m[1]);
-      const end = m[2] ? Number(m[2]) : start;
+    } else if ((match = line.match(RE_DEL))) {
+      const start = Number(match[1]);
+      const end = match[2] ? Number(match[2]) : start;
       section.ops.push({ kind: "del", start, end });
-      op = undefined; // DEL no lleva cuerpo
-    } else if ((m = line.match(RE_INS_PRE))) {
-      op = { kind: "ins_pre", line: Number(m[1]), body: [] };
-    } else if ((m = line.match(RE_INS_POST))) {
-      op = { kind: "ins_post", line: Number(m[1]), body: [] };
+      op = undefined;
+    } else if ((match = line.match(RE_INS_PRE))) {
+      op = { kind: "ins_pre", line: Number(match[1]), body: [] };
+    } else if ((match = line.match(RE_INS_POST))) {
+      op = { kind: "ins_post", line: Number(match[1]), body: [] };
     } else if (RE_INS_HEAD.test(line)) {
       op = { kind: "ins_head", body: [] };
     } else if (RE_INS_TAIL.test(line)) {
@@ -127,7 +120,7 @@ export function parseHashline(input: string): Section[] {
     );
   }
 
-  const opCount = sections.reduce((n, s) => n + s.ops.length, 0);
+  const opCount = sections.reduce((count, item) => count + item.ops.length, 0);
   if (opCount > MAX_EDIT_OPS) {
     throw new ParseError(
       `Demasiadas operaciones en un solo edit_file (${opCount}; máx ${MAX_EDIT_OPS}).`,

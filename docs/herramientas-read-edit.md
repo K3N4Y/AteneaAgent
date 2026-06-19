@@ -35,9 +35,8 @@ La salida no es texto plano; es:
 - `[PATH#TAG]` — `TAG` son **4 hex** derivados del hash del **archivo entero
   normalizado** (`computeFileHash()`).
 - Cada línea: `NÚMERO:TEXTO`.
-- Al leer, oh-my-pi **graba un snapshot** del archivo (sus líneas exactas) en un
-  *snapshot store* de sesión, indexado por ese hash, para verificar/recuperar la
-  edición después.
+- Al leer, MyAgent **graba un snapshot** del archivo en un *snapshot store* de
+  sesión, indexado por ese hash, para verificar la edición después.
 
 (En oh-my-pi `read` hace mucho más — directorios, archivos comprimidos, SQLite,
 URLs `pr://`/`issue://`, imágenes, notebooks, resúmenes estructurales — todo
@@ -58,18 +57,18 @@ operaciones:
 | `INS.POST N:` | inserta después de la línea `N` | sí |
 | `INS.HEAD:` | inserta al inicio del archivo | sí |
 | `INS.TAIL:` | inserta al final del archivo | sí |
-| `SWAP.BLK N:` / `DEL.BLK N` / `INS.BLK.POST N:` | igual pero sobre un **bloque sintáctico** resuelto con tree-sitter desde la línea N | según |
 
 - Las filas de cuerpo son `+TEXTO`; `+` solo = línea en blanco. `DEL` no lleva
   cuerpo. No existen filas `-` (el rango ya nombra qué se cambia).
 - El separador de rango es `.=` (`SWAP 41.=42:`).
+- Un `input` puede traer varios archivos, pero sólo una sección por archivo;
+  para cambiar varias zonas del mismo archivo, poné varias ops dentro del mismo
+  bloque `[PATH#TAG]`.
 
-**La verificación es lo importante:** al aplicar, el "patcher" comprueba que el
+**La verificación es lo importante:** al aplicar, `edit_file` comprueba que el
 hash actual del archivo coincida con el `TAG` de la cabecera. Si el archivo
-cambió desde la lectura, intenta una recuperación basada en el snapshot; si no
-puede probar un resultado válido, tira `MismatchError` (mostrando el hash actual
-y contexto alrededor del ancla) y obliga a re-leer. Tras un edit exitoso
-devuelve una **cabecera nueva `[path#TAG]`** con el hash del contenido ya
+cambió desde la lectura, falla con contexto y obliga a re-leer. Tras un edit
+exitoso devuelve una **cabecera nueva `[path#TAG]`** con el hash del contenido ya
 escrito, para encadenar ediciones sin re-leer.
 
 Ejemplo (formato exacto):
@@ -106,7 +105,7 @@ sidecar/
     ├── snapshot-store.ts       # snapshots por sesión (path → versiones)
     ├── format.ts               # cabecera [PATH#TAG] + líneas LINE:TEXT
     ├── parser.ts               # parsea input: secciones + operaciones
-    └── apply.ts                # verifica hash y aplica ops por línea
+    └── apply.ts                # aplica ops por línea
 ```
 
 ### Hash y normalización (`edit/hashline/hash.ts`)
@@ -126,22 +125,22 @@ export function computeFileHash(text: string): string {
 }
 ```
 
-> El hash de 4 hex es solo una **etiqueta rápida**. La verificación real se apoya
-> en el snapshot (las líneas exactas que se leyeron), así una colisión de 1/65536
-> no basta para aplicar sobre contenido drifteado.
+> El hash de 4 hex es solo una **etiqueta rápida**. `edit_file` exige además que
+> el tag exista en el snapshot de la sesión y que el texto guardado coincida con
+> el archivo actual; una colisión o un tag inventado no autorizan una edición.
 
 ### Snapshot store (`edit/hashline/snapshot-store.ts`)
 
-Por sesión, en memoria. Guarda lo que `read` leyó para poder verificar/recuperar
-en `edit`.
+Por sesión, en memoria. Guarda lo que `read_file`/`search` mostraron para poder
+validar tags y rechazar anchors sobre líneas no vistas.
 
 ```ts
-interface Snapshot { hash: string; lines: string[]; }
+interface Snapshot { hash: string; text: string; seenLines?: Set<number>; }
 
 class SnapshotStore {
   private byPath = new Map<string, Snapshot[]>(); // últimas N versiones por path
-  record(path: string, lines: string[], hash: string): void { /* push, cap */ }
-  find(path: string, hash: string): Snapshot | undefined { /* match por hash */ }
+  record(path: string, text: string, seenLines?: Iterable<number>): string { /* hash, push, cap */ }
+  byHash(path: string, hash: string): Snapshot | undefined { /* match por hash */ }
 }
 ```
 
@@ -163,7 +162,7 @@ export const readFile: Tool<{ path: string; range?: string }> = {
     const text = await readWithinProject(path, ctx);       // valida ruta segura
     const lines = normalize(text).split("\n");
     const hash = computeFileHash(text);
-    ctx.snapshots.record(path, lines, hash);               // ← clave
+    ctx.snapshots.record(path, text, visibleLines);        // ← clave
     const body = selectRange(lines, range)                 // numeración 1-indexada
       .map((line, i) => `${startLine + i}:${line}`)
       .join("\n");
@@ -197,14 +196,12 @@ export const editFile: Tool<{ input: string }> = {
       const currentHash = computeFileHash(current);
       // verificación: el archivo no cambió desde la lectura
       if (currentHash !== sec.tag) {
-        const snap = ctx.snapshots.find(sec.path, sec.tag);
-        // (MVP: si no coincide, error claro pidiendo re-leer; recuperación = después)
         throw new ToolError(mismatchMessage(sec.path, sec.tag, currentHash));
       }
       const next = applyOps(normalize(current).split("\n"), sec.ops);
       await writeWithinProject(sec.path, next.join("\n"), ctx);
       const newHash = computeFileHash(next.join("\n"));
-      ctx.snapshots.record(sec.path, next, newHash);
+      ctx.snapshots.record(sec.path, next.join("\n"));
       results.push(`[${sec.path}#${newHash}]\n${diffPreview(current, next)}`);
     }
     return { output: results.join("\n\n"), isError: false };
@@ -217,10 +214,9 @@ para que insertar/borrar no corra los índices de las ops siguientes.
 
 ### Operaciones del MVP
 
-Empezamos con las **no-`.BLK`** (sin tree-sitter): `SWAP N.=M:`, `DEL N.=M`,
-`INS.PRE N:`, `INS.POST N:`, `INS.HEAD:`, `INS.TAIL:`. Cubren casi todo. Las
-`.BLK` (reemplazar un bloque sintáctico entero) se agregan cuando integremos
-tree-sitter.
+Soportamos sólo operaciones concretas por línea: `SWAP N.=M:`, `DEL N.=M`,
+`INS.PRE N:`, `INS.POST N:`, `INS.HEAD:`, `INS.TAIL:`. No hay gramática `.BLK`
+ni resolución sintáctica con tree-sitter.
 
 ---
 
@@ -232,7 +228,7 @@ Para no morir en la orilla, **no** copiamos al inicio:
   notebooks y resúmenes estructurales. Solo **archivos de texto locales + rangos**.
 - `edit`: las ops `.BLK` con tree-sitter, la recuperación avanzada basada en
   snapshots (merge de 3 vías), el sobre `*** Begin/End Patch`, y la escritura a
-  través del LSP. En el MVP, si el hash no coincide → error y re-leer.
+  través del LSP. Si el hash no coincide → error y re-leer.
 - Toda la familia de selectores exóticos del `read` de oh-my-pi
   (`:conflicts`, `:raw`, multi-rango complejo): empezamos con rango simple.
 
@@ -273,6 +269,5 @@ línea verificada por hash) con una fracción del código.
 - Doc del `read`: `docs/tools/read.md` — formato `[PATH#TAG]` + `LINE:TEXT`,
   snapshot store, selectores.
 - Doc del `edit`: `docs/tools/edit.md` — gramática hashline (`SWAP`/`DEL`/`INS`),
-  verificación por hash, `MismatchError`, ejemplos.
-- Paquete del núcleo en oh-my-pi: `packages/hashline/` (`format.ts`, `input.ts`,
-  `parser.ts`, `apply.ts`, `snapshots.ts`, `recovery.ts`, `mismatch.ts`).
+  verificación por hash y ejemplos.
+- Paquete del núcleo en oh-my-pi: `packages/hashline/` como referencia de diseño.

@@ -81,14 +81,30 @@ async function main() {
     readFileSync(join(root, "a.ts"), "utf8"),
   );
 
-  // 5. edit con tag viejo → mismatch (el archivo cambió).
+  // 5. edit con tag viejo → rechazo y re-read obligatorio.
   const e2 = await editFileTool.run(
     { input: `[a.ts#${tag}]\nSWAP 1.=1:\n+const X = 999;` },
     ctx,
   );
   check(
-    "edit_file detecta mismatch de hash",
-    e2.isError && e2.output.includes("cambió"),
+    "edit_file rechaza hash stale",
+    e2.isError && e2.output.includes("Edit rejected"),
+    e2.output,
+  );
+
+  // 5b. re-lee y edita con tag fresco.
+  const rFresh = await readFileTool.run({ path: "a.ts" }, ctx);
+  const tagFresh = headerHash(rFresh.output);
+  const e2b = await editFileTool.run(
+    { input: `[a.ts#${tagFresh}]\nSWAP 1.=1:\n+const X = 999;` },
+    ctx,
+  );
+  check("edit_file con tag fresco ok", !e2b.isError, e2b.output);
+  check(
+    "archivo refleja segundo SWAP",
+    readFileSync(join(root, "a.ts"), "utf8") ===
+      "const X = 999;\nconst Y = 22;\nconst Z = 3;",
+    readFileSync(join(root, "a.ts"), "utf8"),
   );
 
   // 6. INS.HEAD + INS.TAIL + DEL combinados (re-leer para tag fresco).
@@ -108,7 +124,7 @@ async function main() {
   const after = readFileSync(join(root, "a.ts"), "utf8");
   check(
     "resultado combinado correcto",
-    after === "// header\nconst X = 1;\nconst Y = 22;\n// footer",
+    after === "// header\nconst X = 999;\nconst Y = 22;\n// footer",
     JSON.stringify(after),
   );
 
@@ -116,10 +132,49 @@ async function main() {
   const r3 = await readFileTool.run({ path: "a.ts", range: "2-3" }, ctx);
   check(
     "read_file rango 2-3",
-    r3.output.includes("\n2:const X = 1;") &&
+    r3.output.includes("\n2:const X = 999;") &&
       r3.output.includes("\n3:const Y = 22;") &&
       !r3.output.includes("\n1:"),
     r3.output,
+  );
+  const tagRanged = headerHash(r3.output);
+  const unseenEdit = await editFileTool.run(
+    { input: `[a.ts#${tagRanged}]\nSWAP 1.=1:\n+// nope` },
+    ctx,
+  );
+  check(
+    "edit_file rechaza anclas no vistas",
+    unseenEdit.isError && unseenEdit.output.includes("líneas no mostradas"),
+    unseenEdit.output,
+  );
+  const freshCtx: ToolContext = {
+    projectRoot: root,
+    snapshots: new SnapshotStore(),
+  };
+  const unknownTagEdit = await editFileTool.run(
+    { input: `[a.ts#${tagRanged}]\nSWAP 2.=2:\n+const X = 1000;` },
+    freshCtx,
+  );
+  check(
+    "edit_file rechaza tag no visto en la sesión",
+    unknownTagEdit.isError && unknownTagEdit.output.includes("versión vigente"),
+    unknownTagEdit.output,
+  );
+  const rFullForDuplicate = await readFileTool.run({ path: "a.ts" }, ctx);
+  const tagDuplicate = headerHash(rFullForDuplicate.output);
+  const duplicateSectionEdit = await editFileTool.run(
+    {
+      input:
+        `[a.ts#${tagDuplicate}]\nSWAP 2.=2:\n+const X = 1000;\n` +
+        `[a.ts#${tagDuplicate}]\nSWAP 3.=3:\n+const Y = 1000;`,
+    },
+    ctx,
+  );
+  check(
+    "edit_file rechaza secciones duplicadas por archivo",
+    duplicateSectionEdit.isError &&
+      duplicateSectionEdit.output.includes("más de una sección"),
+    duplicateSectionEdit.output,
   );
 
   // 8. ruta fuera del proyecto → error.
@@ -141,11 +196,11 @@ async function main() {
   );
   check("list_dir marca el dir con /", ld.output.includes("sub/"), ld.output);
 
-  // 10. search encuentra contenido y lo ubica como path:línea:texto.
+  // 10. search encuentra contenido y lo agrupa en bloques hashline editables.
   const sr = await searchTool.run({ query: "const Y" }, ctx);
   check(
     "search encuentra coincidencia en a.ts",
-    !sr.isError && sr.output.includes("a.ts:"),
+    !sr.isError && /^\[a\.ts#[0-9A-F]{4}\]\n3:const Y = 22;/m.test(sr.output),
     sr.output,
   );
   const sr0 = await searchTool.run({ query: "no-existe-zzz" }, ctx);
@@ -160,7 +215,10 @@ async function main() {
   );
   check(
     "search regex acotado a subdir",
-    !srx.isError && srx.output.includes("sub/b.ts:"),
+    !srx.isError &&
+      /^\[sub\/b\.ts#[0-9A-F]{4}\]\n1:export const ok = true;/m.test(
+        srx.output,
+      ),
     srx.output,
   );
 

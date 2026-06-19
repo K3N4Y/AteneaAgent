@@ -1,7 +1,8 @@
 // search: busca texto dentro de los archivos del proyecto (estilo grep).
 // Recorre el árbol desde `path` (por defecto la raíz), salta directorios
 // pesados (node_modules, .git, …) y archivos binarios/enormes, y devuelve
-// coincidencias como "path:línea:texto". Read-only: disponible para Plan.
+// coincidencias agrupadas como bloques hashline editables. Read-only:
+// disponible para Plan.
 
 import { z } from "zod";
 import { readFile, readdir, stat } from "node:fs/promises";
@@ -9,6 +10,11 @@ import { join, relative } from "node:path";
 
 import { type Tool, type ToolResult } from "./types";
 import { secureResolveWithinProject } from "./fs-safe";
+import {
+  canonicalSnapshotPath,
+  normalizeSnapshotText,
+} from "./hashline-filesystem";
+import { formatHeader } from "../edit/hashline/format";
 import {
   MAX_SEARCH_RESULTS,
   MAX_SEARCH_FILE_BYTES,
@@ -48,12 +54,18 @@ const schema = z.object({
     .describe("Ignorar mayúsculas/minúsculas (por defecto false)."),
 });
 
+interface SearchBlock {
+  path: string;
+  tag: string;
+  lines: string[];
+}
+
 export const searchTool: Tool<z.infer<typeof schema>> = {
   name: "search",
   description:
-    "Busca texto en los archivos del proyecto (como grep -rn). Devuelve líneas " +
-    '"path:línea:texto". Salta node_modules/.git/dist y binarios. Aceptá un ' +
-    "subdirectorio para acotar y regex/ignoreCase para afinar.",
+    "Busca texto en los archivos del proyecto (como grep -rn). Devuelve bloques " +
+    "hashline [PATH#TAG] con líneas N:TEXTO editables. Salta node_modules/.git/dist " +
+    "y binarios. Aceptá un subdirectorio para acotar y regex/ignoreCase para afinar.",
   schema,
   async run({ query, path, regex, ignoreCase }, ctx): Promise<ToolResult> {
     let matcher: (line: string) => boolean;
@@ -86,7 +98,8 @@ export const searchTool: Tool<z.infer<typeof schema>> = {
       };
     }
 
-    const results: string[] = [];
+    const blocks: SearchBlock[] = [];
+    let resultCount = 0;
     let filesVisited = 0;
     let truncated = false;
 
@@ -126,15 +139,25 @@ export const searchTool: Tool<z.infer<typeof schema>> = {
         if (st.size > MAX_SEARCH_FILE_BYTES) return;
         const buf = await readFile(absFile);
         if (buf.includes(0)) return; // byte NUL ⇒ lo saltamos (binario / UTF-16 / UTF-32 — heurística, no detector formal)
-        const lines = buf.toString("utf8").split("\n");
+        const fullText = normalizeSnapshotText(buf.toString("utf8"));
+        const lines = fullText.split("\n");
+        const visible: string[] = [];
+        const seenLines: number[] = [];
         for (let i = 0; i < lines.length; i++) {
           if (matcher(lines[i])) {
-            results.push(`${relFile}:${i + 1}:${lines[i].slice(0, 300)}`);
-            if (results.length >= MAX_SEARCH_RESULTS) {
+            visible.push(`${i + 1}:${lines[i].slice(0, 300)}`);
+            seenLines.push(i + 1);
+            resultCount++;
+            if (resultCount >= MAX_SEARCH_RESULTS) {
               truncated = true;
-              return;
+              break;
             }
           }
+        }
+        if (visible.length > 0) {
+          const snapshotPath = canonicalSnapshotPath(relFile, ctx);
+          const tag = ctx.snapshots.record(snapshotPath, fullText, seenLines);
+          blocks.push({ path: relFile, tag, lines: visible });
         }
       } catch {
         // archivo ilegible: lo ignoramos
@@ -159,15 +182,21 @@ export const searchTool: Tool<z.infer<typeof schema>> = {
       };
     }
 
-    if (results.length === 0) {
+    if (resultCount === 0) {
       return {
         output: `Sin coincidencias para ${JSON.stringify(query)}.`,
         isError: false,
       };
     }
     const note = truncated
-      ? `\n… (truncado en ${results.length} coincidencias; afiná la búsqueda)`
-      : `\n(${results.length} coincidencias)`;
-    return { output: results.join("\n") + note, isError: false };
+      ? `\n… (truncado en ${resultCount} coincidencias; afiná la búsqueda)`
+      : `\n(${resultCount} coincidencias)`;
+    const output = blocks
+      .map(
+        (block) =>
+          `${formatHeader(block.path, block.tag)}\n${block.lines.join("\n")}`,
+      )
+      .join("\n\n");
+    return { output: output + note, isError: false };
   },
 };

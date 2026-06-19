@@ -1,16 +1,20 @@
 // read_file: lee un archivo de texto del proyecto y lo devuelve numerado con un
 // hash de archivo (formato hashline). Graba un snapshot para que edit_file pueda
-// verificar/recuperar después.
+// verificar después.
 
 import { z } from "zod";
 
 import { type Tool, type ToolResult } from "./types";
 import { readWithinProject } from "./fs-safe";
-import { computeFileHash, toLines } from "../edit/hashline/hash";
+import {
+  canonicalSnapshotPath,
+  normalizeSnapshotText,
+} from "./hashline-filesystem";
 import {
   formatHeader,
   parseRanges,
   buildNumbered,
+  type Range,
 } from "../edit/hashline/format";
 
 const schema = z.object({
@@ -41,13 +45,22 @@ export const readFileTool: Tool<z.infer<typeof schema>> = {
       };
     }
 
-    const lines = toLines(text);
-    const hash = computeFileHash(text);
-    // El snapshot guarda SIEMPRE el archivo completo (aunque se lea un rango).
-    ctx.snapshots.record(path, lines, hash);
-
+    const normalized = normalizeSnapshotText(text);
+    const lines = normalized.split("\n");
     const ranges = parseRanges(range, lines.length);
+    const snapshotPath = canonicalSnapshotPath(path, ctx);
+    const hash = ctx.snapshots.record(
+      snapshotPath,
+      normalized,
+      seenLinesForRanges(ranges),
+    );
     const body = buildNumbered(lines, ranges);
     return { output: `${formatHeader(path, hash)}\n${body}`, isError: false };
   },
 };
+
+function* seenLinesForRanges(ranges: Range[]): Iterable<number> {
+  for (const [start, end] of ranges) {
+    for (let line = start; line <= end; line++) yield line;
+  }
+}

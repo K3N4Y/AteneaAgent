@@ -25,8 +25,8 @@ export function ChatPanel() {
           </p>
         </div>
       )}
-      {messages.map((m, i) => (
-        <MessageBubble key={i} message={m} streaming={streaming} />
+      {messages.map((m) => (
+        <MessageBubble key={m.id} message={m} streaming={streaming} />
       ))}
       <PermissionCard />
       <div ref={endRef} />

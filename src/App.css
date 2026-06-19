@@ -572,6 +572,22 @@ body {
 .tool-toggle {
   color: var(--muted);
 }
+/* read_file: línea compacta, sin card ni cuerpo expandible (estilo Cursor). */
+.tool-read {
+  margin: 4px 0;
+}
+.tool-read-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 10px;
+  font-size: 13px;
+}
+.tool-read-label {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--muted);
+}
 /* task: sub-transcript anidado de los subagentes, indentado bajo la tarjeta
    con una guía a la izquierda (estilo árbol de Claude Code). */
 .subagents {
@@ -604,6 +620,41 @@ body {
 .subagent-count {
   color: var(--muted);
   font-size: 11px;
+}
+/* Brote que crece: spritesheet de 8 frames (100×176 c/u) que reemplaza el reloj
+   del subagente. Se anima mientras corre y se congela en el último frame (brote
+   crecido) cuando el `task` termina (.sprout-done). Pixel-art → pixelated.
+   Hay dos sheets idénticos salvo el color del brote: blanco (`sprout-dark.png`)
+   para el tema oscuro actual, y negro (`sprout-light.png`) listo para el modo
+   claro — se activa con el override `[data-theme="light"]` de más abajo. */
+.sprout {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 24px;
+  background-image: url("./assets/sprout-dark.png");
+  background-repeat: no-repeat;
+  background-size: 112px 24px; /* 8 frames × 14px de ancho */
+  background-position: 0 0;
+  image-rendering: pixelated;
+  animation: sprout-grow 0.9s steps(8) infinite;
+}
+/* Modo claro (futuro): brote negro para que contraste sobre fondo claro. Inerte
+   hasta que el tema claro ponga data-theme="light" en la raíz. */
+[data-theme="light"] .sprout {
+  background-image: url("./assets/sprout-light.png");
+}
+.sprout-done {
+  animation: none;
+  background-position-x: -98px; /* 7 × 14px → último frame, brote crecido */
+}
+@keyframes sprout-grow {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: -112px; /* 8 × 14px → vuelve al inicio en loop */
+  }
 }
 /* Las tool-cards anidadas son más chicas y sin margen de más. */
 .subagent-body {

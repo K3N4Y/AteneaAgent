@@ -1,46 +1,78 @@
-// Snapshots por sesión: guarda lo que `read_file` leyó (líneas exactas + hash)
-// para poder verificar/recuperar en `edit_file`. En memoria, por sesión.
+// Snapshots por sesión: guarda versiones completas observadas por read/search/
+// write para validar tags y saber qué líneas fueron visibles para el modelo.
 
 import {
-  MAX_SNAPSHOT_VERSIONS_PER_PATH,
   MAX_SNAPSHOT_PATHS,
+  MAX_SNAPSHOT_VERSIONS_PER_PATH,
 } from "../../config/limits";
+import { computeFileHash } from "./hash";
 
 export interface Snapshot {
+  path: string;
   hash: string;
-  lines: string[];
+  text: string;
+  seenLines?: Set<number>;
+}
+
+function mergeSeenLines(
+  snapshot: Snapshot,
+  seenLines: Iterable<number> | undefined,
+): void {
+  if (seenLines === undefined) return;
+  snapshot.seenLines ??= new Set<number>();
+  for (const line of seenLines) snapshot.seenLines.add(line);
 }
 
 export class SnapshotStore {
   private byPath = new Map<string, Snapshot[]>();
 
-  /** Graba una versión leída/escrita de un archivo. */
-  record(path: string, lines: string[], hash: string): void {
+  /** Graba una versión completa observada y devuelve su tag hashline. */
+  record(path: string, text: string, seenLines?: Iterable<number>): string {
+    const hash = computeFileHash(text);
     let versions = this.byPath.get(path);
     if (!versions) {
       versions = [];
       this.byPath.set(path, versions);
     }
-    // Evita duplicar si ya tenemos ese hash en cabeza.
-    if (versions.length > 0 && versions[versions.length - 1].hash === hash) {
-      versions[versions.length - 1] = { hash, lines };
-    } else {
-      versions.push({ hash, lines });
-      if (versions.length > MAX_SNAPSHOT_VERSIONS_PER_PATH) versions.shift();
+
+    const existing = versions.find((snapshot) => snapshot.hash === hash);
+    if (existing) {
+      existing.text = text;
+      mergeSeenLines(existing, seenLines);
+      versions = [
+        existing,
+        ...versions.filter((snapshot) => snapshot !== existing),
+      ];
+      this.byPath.set(path, versions);
+      this.evictOldPaths(path);
+      return hash;
     }
+
+    versions.unshift({ path, hash, text });
+    mergeSeenLines(versions[0], seenLines);
+    if (versions.length > MAX_SNAPSHOT_VERSIONS_PER_PATH)
+      versions.length = MAX_SNAPSHOT_VERSIONS_PER_PATH;
     this.evictOldPaths(path);
+    return hash;
+  }
+
+  /** Última versión observada de `path`. */
+  head(path: string): Snapshot | undefined {
+    return this.byPath.get(path)?.[0];
   }
 
   /** Busca un snapshot por path + hash. */
+  byHash(path: string, hash: string): Snapshot | undefined {
+    return this.byPath.get(path)?.find((snapshot) => snapshot.hash === hash);
+  }
+
+  /** Alias de compatibilidad con el store anterior. */
   find(path: string, hash: string): Snapshot | undefined {
-    const versions = this.byPath.get(path);
-    if (!versions) return undefined;
-    return versions.find((v) => v.hash === hash);
+    return this.byHash(path, hash);
   }
 
   private evictOldPaths(justUsed: string): void {
     if (this.byPath.size <= MAX_SNAPSHOT_PATHS) return;
-    // Map mantiene orden de inserción: borra el más viejo que no sea el actual.
     for (const key of this.byPath.keys()) {
       if (key !== justUsed) {
         this.byPath.delete(key);
