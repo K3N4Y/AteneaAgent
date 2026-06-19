@@ -6,7 +6,10 @@ import { z } from "zod";
 
 import { type Tool, type ToolResult } from "./types";
 import { writeWithinProject, existsWithinProject } from "./fs-safe";
-import { computeFileHash, toLines } from "../edit/hashline/hash";
+import {
+  canonicalSnapshotPath,
+  normalizeSnapshotText,
+} from "./hashline-filesystem";
 import { formatHeader } from "../edit/hashline/format";
 import { MAX_FILE_BYTES } from "../config/limits";
 
@@ -56,10 +59,11 @@ export const writeFileTool: Tool<z.infer<typeof schema>> = {
       };
     }
 
-    const hash = computeFileHash(content);
+    const normalized = normalizeSnapshotText(content);
+    const lineCount = normalized.split("\n").length;
+    const snapshotPath = canonicalSnapshotPath(path, ctx);
     // Dejamos el snapshot grabado para encadenar un edit_file sin re-leer.
-    ctx.snapshots.record(path, toLines(content), hash);
-    const lineCount = toLines(content).length;
+    const hash = ctx.snapshots.record(snapshotPath, normalized);
     return {
       output: `${formatHeader(path, hash)}\nArchivo creado (${lineCount} líneas).`,
       isError: false,
