@@ -39,7 +39,10 @@ export class SnapshotStore {
     if (existing) {
       existing.text = text;
       mergeSeenLines(existing, seenLines);
-      versions = [existing, ...versions.filter((snapshot) => snapshot !== existing)];
+      versions = [
+        existing,
+        ...versions.filter((snapshot) => snapshot !== existing),
+      ];
       this.byPath.set(path, versions);
       this.evictOldPaths(path);
       return hash;
@@ -47,7 +50,8 @@ export class SnapshotStore {
 
     versions.unshift({ path, hash, text });
     mergeSeenLines(versions[0], seenLines);
-    if (versions.length > MAX_SNAPSHOT_VERSIONS_PER_PATH) versions.length = MAX_SNAPSHOT_VERSIONS_PER_PATH;
+    if (versions.length > MAX_SNAPSHOT_VERSIONS_PER_PATH)
+      versions.length = MAX_SNAPSHOT_VERSIONS_PER_PATH;
     this.evictOldPaths(path);
     return hash;
   }

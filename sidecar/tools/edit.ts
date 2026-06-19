@@ -187,7 +187,11 @@ function formatLineRanges(lines: readonly number[]): string {
   return parts.join(", ");
 }
 
-function unseenLinesMessage(path: string, lines: readonly number[], tag: string): string {
+function unseenLinesMessage(
+  path: string,
+  lines: readonly number[],
+  tag: string,
+): string {
   const ranges = formatLineRanges(lines);
   return (
     `Este edit ancla líneas no mostradas por [${path}#${tag}]: ${ranges}. ` +

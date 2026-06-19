@@ -36,12 +36,16 @@ function validate(op: Op, total: number): void {
       return;
     case "ins_pre":
       if (!inRange(op.line)) {
-        throw new ApplyError(`INS.PRE ${op.line} fuera de rango (1..${total}).`);
+        throw new ApplyError(
+          `INS.PRE ${op.line} fuera de rango (1..${total}).`,
+        );
       }
       return;
     case "ins_post":
       if (!inRange(op.line)) {
-        throw new ApplyError(`INS.POST ${op.line} fuera de rango (1..${total}).`);
+        throw new ApplyError(
+          `INS.POST ${op.line} fuera de rango (1..${total}).`,
+        );
       }
       return;
     case "ins_head":

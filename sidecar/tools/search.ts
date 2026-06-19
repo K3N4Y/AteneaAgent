@@ -192,7 +192,10 @@ export const searchTool: Tool<z.infer<typeof schema>> = {
       ? `\n… (truncado en ${resultCount} coincidencias; afiná la búsqueda)`
       : `\n(${resultCount} coincidencias)`;
     const output = blocks
-      .map((block) => `${formatHeader(block.path, block.tag)}\n${block.lines.join("\n")}`)
+      .map(
+        (block) =>
+          `${formatHeader(block.path, block.tag)}\n${block.lines.join("\n")}`,
+      )
       .join("\n\n");
     return { output: output + note, isError: false };
   },

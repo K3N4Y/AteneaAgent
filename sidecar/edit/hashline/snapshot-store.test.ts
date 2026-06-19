@@ -19,10 +19,10 @@ test("record merges seen lines for identical content", () => {
   const tag = store.record(PATH, "one\ntwo\nthree\n", [1]);
 
   assert.equal(store.record(PATH, "one\ntwo\nthree\n", [3]), tag);
-  assert.deepEqual([...(store.byHash(PATH, tag)?.seenLines ?? [])].sort(), [
-    1,
-    3,
-  ]);
+  assert.deepEqual(
+    [...(store.byHash(PATH, tag)?.seenLines ?? [])].sort(),
+    [1, 3],
+  );
 });
 
 test("record keeps recent versions per path", () => {

@@ -215,7 +215,10 @@ async function main() {
   );
   check(
     "search regex acotado a subdir",
-    !srx.isError && /^\[sub\/b\.ts#[0-9A-F]{4}\]\n1:export const ok = true;/m.test(srx.output),
+    !srx.isError &&
+      /^\[sub\/b\.ts#[0-9A-F]{4}\]\n1:export const ok = true;/m.test(
+        srx.output,
+      ),
     srx.output,
   );
 
