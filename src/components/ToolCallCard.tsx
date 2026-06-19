@@ -45,7 +45,11 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
 
   return (
     <div className={`tool-card tool-${status}`}>
-      <button type="button" className="tool-head" onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className="tool-head"
+        onClick={() => setOpen((o) => !o)}
+      >
         <span className="tool-badge">{badge}</span>
         <span className="tool-name">{call.name}</span>
         <span className="tool-arg">{summarizeInput(call.input)}</span>

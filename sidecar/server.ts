@@ -81,16 +81,29 @@ const HOST = "127.0.0.1";
 // contra una allowlist EXACTA. El navegador fija el Origin a la página real, así
 // que una web atacante no puede falsificarlo; por eso basta con igualdad tras
 // parsear la URL — nunca substring/includes ni "*".
+/** Normaliza un origin a `protocolo//host` (igual que el lookup del handshake),
+ *  tolerando barras finales o rutas en las entradas de MYAGENT_ALLOWED_ORIGINS. */
+function normalizeOrigin(s: string): string {
+  try {
+    const u = new URL(s);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return s;
+  }
+}
+
 const ALLOWED_ORIGINS = new Set(
-  process.env.MYAGENT_ALLOWED_ORIGINS?.split(",")
-    .map((s) => s.trim())
-    .filter(Boolean) ?? [
-    "http://localhost:1420", // vite dev (tauri.conf.json → devUrl)
-    "http://127.0.0.1:1420",
-    "tauri://localhost", // webview de producción (Linux/macOS)
-    "http://tauri.localhost", // webview de producción (Windows)
-    "https://tauri.localhost",
-  ],
+  (
+    process.env.MYAGENT_ALLOWED_ORIGINS?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean) ?? [
+      "http://localhost:1420", // vite dev (tauri.conf.json → devUrl)
+      "http://127.0.0.1:1420",
+      "tauri://localhost", // webview de producción (Linux/macOS)
+      "http://tauri.localhost", // webview de producción (Windows)
+      "https://tauri.localhost",
+    ]
+  ).map(normalizeOrigin),
 );
 
 /**
@@ -102,12 +115,9 @@ const ALLOWED_ORIGINS = new Set(
  */
 function originAllowed(origin: string | undefined): boolean {
   if (!origin) return true;
-  try {
-    const u = new URL(origin);
-    return ALLOWED_ORIGINS.has(`${u.protocol}//${u.host}`);
-  } catch {
-    return false;
-  }
+  // normalizeOrigin devuelve el string crudo si no parsea → no estará en el Set
+  // (que sólo tiene formas normalizadas) → rechazado, igual que antes.
+  return ALLOWED_ORIGINS.has(normalizeOrigin(origin));
 }
 
 registerBuiltinProviders();
