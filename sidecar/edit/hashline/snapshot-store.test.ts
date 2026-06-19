@@ -2,47 +2,35 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { SnapshotStore } from "./snapshot-store";
-import {
-  MAX_SNAPSHOT_VERSIONS_PER_PATH,
-  MAX_SNAPSHOT_PATHS,
-} from "../../config/limits";
 
-test("record + find: roundtrip por path+hash", () => {
-  const s = new SnapshotStore();
-  s.record("a.ts", ["l1", "l2"], "AB12");
-  assert.deepEqual(s.find("a.ts", "AB12"), {
-    hash: "AB12",
-    lines: ["l1", "l2"],
-  });
+const PATH = "/tmp/hashline-snapshot-store.ts";
+
+test("record returns a deterministic content tag and stores the full text", () => {
+  const store = new SnapshotStore();
+  const tag = store.record(PATH, "one\ntwo\n");
+
+  assert.match(tag, /^[0-9A-F]{4}$/);
+  assert.equal(store.byHash(PATH, tag)?.text, "one\ntwo\n");
+  assert.equal(store.head(PATH)?.hash, tag);
 });
 
-test("find: undefined para path o hash desconocido", () => {
-  const s = new SnapshotStore();
-  s.record("a.ts", ["x"], "AB12");
-  assert.equal(s.find("otro.ts", "AB12"), undefined);
-  assert.equal(s.find("a.ts", "FFFF"), undefined);
+test("record merges seen lines for identical content", () => {
+  const store = new SnapshotStore();
+  const tag = store.record(PATH, "one\ntwo\nthree\n", [1]);
+
+  assert.equal(store.record(PATH, "one\ntwo\nthree\n", [3]), tag);
+  assert.deepEqual([...(store.byHash(PATH, tag)?.seenLines ?? [])].sort(), [
+    1,
+    3,
+  ]);
 });
 
-test("record: mismo hash en cabeza se actualiza in-place (no crece, refresca líneas)", () => {
-  const s = new SnapshotStore();
-  s.record("a.ts", ["v1"], "AB12");
-  s.record("a.ts", ["v2"], "AB12"); // mismo hash en cabeza → reemplaza, no apila
-  assert.deepEqual(s.find("a.ts", "AB12"), { hash: "AB12", lines: ["v2"] });
-});
+test("record keeps recent versions per path", () => {
+  const store = new SnapshotStore();
+  const old = store.record(PATH, "old\n");
+  const next = store.record(PATH, "next\n");
 
-test("record: al superar el cap de versiones se descarta la más vieja del path", () => {
-  const s = new SnapshotStore();
-  const n = MAX_SNAPSHOT_VERSIONS_PER_PATH;
-  for (let i = 0; i <= n; i++) s.record("a.ts", [`v${i}`], `H${i}`); // n+1 hashes distintos
-  assert.equal(s.find("a.ts", "H0"), undefined); // la más vieja se fue
-  assert.ok(s.find("a.ts", "H1")); // las n más nuevas siguen
-  assert.ok(s.find("a.ts", `H${n}`));
-});
-
-test("record: al superar el tope de paths se evicta el path más viejo", () => {
-  const s = new SnapshotStore();
-  const n = MAX_SNAPSHOT_PATHS;
-  for (let i = 0; i <= n; i++) s.record(`f${i}.ts`, ["x"], "H"); // n+1 paths distintos
-  assert.equal(s.find("f0.ts", "H"), undefined); // el más viejo se evictó
-  assert.ok(s.find(`f${n}.ts`, "H")); // el más nuevo queda
+  assert.equal(store.byHash(PATH, old)?.text, "old\n");
+  assert.equal(store.byHash(PATH, next)?.text, "next\n");
+  assert.equal(store.head(PATH)?.hash, next);
 });
