@@ -33,6 +33,28 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
   const status = !call.done ? "run" : call.isError ? "err" : "ok";
   const badge = status === "run" ? "⏳" : status === "err" ? "✗" : "✓";
 
+  // Línea compacta (sin card expandible), estilo Cursor. El contenido no se
+  // muestra; sigue yendo al LLM/historial.
+  //   read_file → "read <archivo>"   (sólo el nombre, no la ruta)
+  //   list_dir  → "list dir <ruta>"  (ruta relativa donde está trabajando)
+  if (call.name === "read_file" || call.name === "list_dir") {
+    const path = summarizeInput(call.input);
+    const label = call.name === "read_file" ? "read" : "list dir";
+    const arg =
+      call.name === "read_file" ? path.split("/").pop() || path : path || ".";
+    return (
+      <div className={`tool-read tool-${status}`}>
+        <div className="tool-read-line">
+          <span className="tool-read-label">{label}</span>
+          <span className="tool-arg">{arg}</span>
+        </div>
+        {call.done && call.isError && (
+          <pre className="tool-error">{call.output}</pre>
+        )}
+      </div>
+    );
+  }
+
   // Vista rica inline (sólo en éxito; los errores son texto, no un diff/salida).
   const rich =
     call.done && !call.isError && call.output !== undefined
@@ -69,9 +91,15 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
             return (
               <div key={i} className="subagent">
                 <div className="subagent-head">
-                  <span className="subagent-badge">
-                    {call.done ? "✓" : "⏳"}
-                  </span>
+                  {/* Brote que crece (spritesheet) en vez del reloj: animado
+                      mientras corre, congelado en el último frame al terminar. */}
+                  <span
+                    className={`sprout${call.done ? " sprout-done" : ""}`}
+                    role="img"
+                    aria-label={
+                      call.done ? "subagente terminado" : "subagente en curso"
+                    }
+                  />
                   <span className="subagent-name">
                     {run.type ?? "subagente"}
                   </span>
@@ -92,10 +120,8 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
 
       {rich === "diff" && <DiffView output={call.output!} />}
       {rich === "terminal" && <TerminalBlock output={call.output!} />}
-      {/* task: el resumen de los subagentes va siempre visible (es el valor). */}
-      {call.name === "task" && call.done && !call.isError && call.output && (
-        <pre className="tool-summary">{call.output}</pre>
-      )}
+      {/* ponytail: resumen del subagente NO se muestra al usuario; sigue en
+          call.output para el agente principal y el historial/LLM. */}
       {/* Errores siempre visibles, aunque la tarjeta esté plegada. */}
       {call.done && call.isError && (
         <pre className="tool-error">{call.output}</pre>
