@@ -9,6 +9,8 @@ import { TerminalBlock } from "./TerminalBlock";
 
 const DIFF_TOOLS = new Set(["edit_file", "write_file"]);
 const TERMINAL_TOOLS = new Set(["run_command", "start_app"]);
+const TRANSPARENT_PIXEL =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
 function summarizeInput(input: unknown): string {
   if (input && typeof input === "object") {
@@ -41,7 +43,11 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
     const path = summarizeInput(call.input);
     const label = call.name === "read_file" ? "read" : "list dir";
     const arg =
-      call.name === "read_file" ? path.split("/").pop() || path : path || ".";
+      call.name === "read_file"
+        ? path.split("/").pop() || path
+        : path && path !== "{}"
+          ? path
+          : ".";
     return (
       <div className={`tool-read tool-${status}`}>
         <div className="tool-read-line">
@@ -83,20 +89,20 @@ export function ToolCallCard({ call }: { call: UiToolCall }) {
           tarjeta (profundidad 1: un subagente nunca recibe la tool `task`). */}
       {call.name === "task" && call.subagents && call.subagents.length > 0 && (
         <div className="subagents">
-          {call.subagents.map((run, i) => {
+          {call.subagents.map((run) => {
             const n = run.toolCalls.length;
             // En curso: mostramos SÓLO la última tool (la que está usando ahora).
             // Terminado: nada de tools, sólo el conteo en la cabecera.
             const last = !call.done && n > 0 ? run.toolCalls[n - 1] : undefined;
             return (
-              <div key={i} className="subagent">
+              <div key={run.id} className="subagent">
                 <div className="subagent-head">
                   {/* Brote que crece (spritesheet) en vez del reloj: animado
                       mientras corre, congelado en el último frame al terminar. */}
-                  <span
+                  <img
                     className={`sprout${call.done ? " sprout-done" : ""}`}
-                    role="img"
-                    aria-label={
+                    src={TRANSPARENT_PIXEL}
+                    alt={
                       call.done ? "subagente terminado" : "subagente en curso"
                     }
                   />

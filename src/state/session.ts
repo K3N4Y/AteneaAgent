@@ -40,6 +40,7 @@ export interface UiToolCall {
  * devolvió) sigue llegando como el `output` del propio `task`.
  */
 export interface SubagentRun {
+  id: string;
   type?: string;
   toolCalls: UiToolCall[];
 }
@@ -90,8 +91,9 @@ export interface ThinkingSegment {
 }
 
 export type Message =
-  | { role: "user"; text: string }
+  | { id: string; role: "user"; text: string }
   | {
+      id: string;
       role: "assistant";
       text: string;
       toolCalls: UiToolCall[];
@@ -111,11 +113,42 @@ export function thinkingSegments(
 
 /** Subagentes iniciales de un `task`: uno por sub-tarea (con su tipo, sin tools
  * todavía), para que la tarjeta liste todos los subagentes desde el arranque. */
-function subagentsInit(input: unknown): SubagentRun[] | undefined {
+function subagentId(taskCallId: string, index: number): string {
+  return `${taskCallId}:${index}`;
+}
+
+function subagentsInit(
+  taskCallId: string,
+  input: unknown,
+): SubagentRun[] | undefined {
   const tasks = (input as { tasks?: { subagent_type?: string }[] })?.tasks;
   return Array.isArray(tasks)
-    ? tasks.map((t) => ({ type: t.subagent_type, toolCalls: [] }))
+    ? tasks.map((t, i) => ({
+        id: subagentId(taskCallId, i),
+        type: t.subagent_type,
+        toolCalls: [],
+      }))
     : undefined;
+}
+
+function normalizeToolCall(call: UiToolCall): UiToolCall {
+  if (!call.subagents) return call;
+  return {
+    ...call,
+    subagents: call.subagents.map((run, i) => ({
+      ...run,
+      id: run.id ?? subagentId(call.id, i),
+    })),
+  };
+}
+
+function normalizeMessages(messages: Message[]): Message[] {
+  return messages.map((m, i) => {
+    const id = m.id ?? `${m.role}:${Math.floor(i / 2)}`;
+    return m.role === "assistant"
+      ? { ...m, id, toolCalls: m.toolCalls.map(normalizeToolCall) }
+      : { ...m, id };
+  });
 }
 
 /** Confirmación de comando pendiente (run_command esperando al usuario). */
@@ -227,7 +260,12 @@ function updateActiveSubagent(
   if (idx === -1) return m;
   const calls = m.toolCalls.slice();
   const subagents = (calls[idx].subagents ?? []).slice();
-  while (subagents.length <= index) subagents.push({ toolCalls: [] });
+  while (subagents.length <= index) {
+    subagents.push({
+      id: subagentId(calls[idx].id, subagents.length),
+      toolCalls: [],
+    });
+  }
   subagents[index] = fn(subagents[index]);
   calls[idx] = { ...calls[idx], subagents };
   return { ...m, toolCalls: calls };
@@ -266,7 +304,7 @@ export const useSession = create<SessionState>((set) => ({
       // se persiste (sobrevive al reinicio), igual que un setProjectPath manual.
       if (s.projectPath) localStorage.setItem(PROJECT_KEY, s.projectPath);
       return {
-        messages: s.messages,
+        messages: normalizeMessages(s.messages),
         agentId: s.agentId,
         projectPath: s.projectPath ?? prev.projectPath,
         sessionId: s.id,
@@ -311,15 +349,23 @@ export const useSession = create<SessionState>((set) => ({
   clearLogs: () => set({ logs: [] }),
 
   startUserTurn: (text) =>
-    set((s) => ({
-      streaming: true,
-      sessionId: s.sessionId ?? crypto.randomUUID(),
-      messages: [
-        ...s.messages,
-        { role: "user", text },
-        { role: "assistant", text: "", toolCalls: [] },
-      ],
-    })),
+    set((s) => {
+      const turn = Math.floor(s.messages.length / 2);
+      return {
+        streaming: true,
+        sessionId: s.sessionId ?? crypto.randomUUID(),
+        messages: [
+          ...s.messages,
+          { id: `user:${turn}`, role: "user", text },
+          {
+            id: `assistant:${turn}`,
+            role: "assistant",
+            text: "",
+            toolCalls: [],
+          },
+        ],
+      };
+    }),
 
   appendAssistantDelta: (text) =>
     set((s) => ({
@@ -363,7 +409,7 @@ export const useSession = create<SessionState>((set) => ({
             input,
             done: false,
             textOffset: m.text.length,
-            ...(name === "task" ? { subagents: subagentsInit(input) } : {}),
+            ...(name === "task" ? { subagents: subagentsInit(id, input) } : {}),
           },
         ],
       })),
